@@ -94,7 +94,7 @@ app = FastAPI(
 
 app.include_router(
     api_router,
-    prefix="/api/v1"
+    prefix="/api"
 )
 
 
@@ -103,6 +103,7 @@ app.include_router(
 # ============================================
 
 @app.get("/")
+@app.head("/")
 async def root():
     """Root endpoint - API information"""
     return {
@@ -119,6 +120,7 @@ async def root():
 # ============================================
 
 @app.get("/health")
+@app.head("/health")
 async def health_check():
     """Health check endpoint"""
     return {
