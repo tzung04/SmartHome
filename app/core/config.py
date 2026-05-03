@@ -119,6 +119,9 @@ class Settings(BaseSettings):
         description="Firebase Admin SDK credentials as JSON string"
     )
 
+    # Python version
+    python_version: str | None = None
+
 # Global settings instance
 settings = Settings()
 
