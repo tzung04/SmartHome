@@ -2,13 +2,14 @@
 Home CRUD operations
 Database queries for home and member management
 """
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.models.home import Home, HomeMember, MemberRole
 from app.models.floor import Floor, Room
+from app.models.user import User
 from app.schemas.home import HomeCreate, HomeUpdate, FloorCreate, RoomCreate, RoomUpdate
 
 
@@ -81,6 +82,18 @@ def get_all_homes(db: Session, skip: int = 0, limit: int = 50) -> tuple[list[Hom
     homes = query.order_by(Home.created_at.desc()).offset(skip).limit(limit).all()
     return homes, total
 
+def get_home_members_with_fcm(db: Session, home_id: UUID) -> List[HomeMember]:
+    """Get home members with FCM tokens"""
+    return (
+        db.query(HomeMember)
+        .join(User)
+        .filter(
+            HomeMember.home_id == home_id,
+            User.fcm_token.isnot(None),
+            User.is_active == True
+        )
+        .all()
+    )
 
 # ============================================
 # HOME - UPDATE

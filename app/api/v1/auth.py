@@ -330,3 +330,20 @@ async def get_me(
     Get current authenticated user information
     """
     return current_user
+
+# ============================================
+# FCM service
+# ============================================
+
+@router.put("/me/fcm-token")
+async def update_fcm_token(
+    token: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update FCM token for push notifications"""
+    user = crud_user.get_user_by_id(db, current_user.id)
+    user.fcm_token = token
+    user.fcm_updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"message": "FCM token updated"}

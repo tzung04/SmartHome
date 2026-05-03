@@ -4,7 +4,7 @@ Handles user authentication and authorization
 """
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, DateTime, Enum as SQLEnum
+from sqlalchemy import Column, String, Boolean, DateTime, Enum as SQLEnum, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -28,11 +28,11 @@ class User(Base):
         hashed_password: Bcrypt hashed password
         full_name: User's full name
         role: User role (super_admin or user)
+        fcm_token = FCM service
         is_active: Account active status
         is_verified: Email verification status
         created_at: Account creation timestamp
         updated_at: Last update timestamp
-    
     Relationships:
         homes: Homes where user is owner
         memberships: Home memberships
@@ -72,6 +72,8 @@ class User(Base):
         nullable=False,
         index=True
     )
+
+    fcm_token = Column(Text, nullable=True, index=True)
     
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
@@ -83,6 +85,12 @@ class User(Base):
     )
     
     updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+    fcm_updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),

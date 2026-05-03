@@ -3,8 +3,7 @@ Core configuration module
 Load settings from environment variables using Pydantic Settings
 """
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
-import json
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -68,11 +67,11 @@ class Settings(BaseSettings):
     storage_bucket_access_logs: str = "access-logs"
     
     # ============================================
-    # SENDGRID EMAIL
+    # RESEND
     # ============================================
-    sendgrid_api_key: str
-    sendgrid_from_email: str
-    sendgrid_from_name: str = "Smart Home"
+    resend_api_key: str
+    email_from: str = "onboarding@resend.dev"
+    email_from_name: str = "Smart Home"
     
     # ============================================
     # SECURITY
@@ -81,19 +80,6 @@ class Settings(BaseSettings):
     otp_max_attempts: int = 5
     rate_limit_enabled: bool = False
     rate_limit_per_minute: int = 60
-    
-    # ============================================
-    # CORS
-    # ============================================
-    cors_origins: str = '["http://localhost:3000"]'
-    
-    @field_validator("cors_origins", mode='before')
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Parse CORS origins from JSON string"""
-        if isinstance(v, str):
-            return json.loads(v)
-        return v
     
     # ============================================
     # BACKGROUND WORKERS
@@ -125,6 +111,13 @@ class Settings(BaseSettings):
     auto_reload: bool = True
     sql_echo: bool = False
 
+    # ============================================
+    # FCM Configuration
+    # ============================================
+    firebase_credentials_json: str = Field(
+        default="{}",
+        description="Firebase Admin SDK credentials as JSON string"
+    )
 
 # Global settings instance
 settings = Settings()

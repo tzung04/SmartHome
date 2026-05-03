@@ -113,18 +113,6 @@ class Home(Base):
         cascade="all, delete-orphan"
     )
     
-    access_logs = relationship(
-        "AccessLog",
-        back_populates="home",
-        cascade="all, delete-orphan"
-    )
-    
-    timers = relationship(
-        "Timer",
-        back_populates="home",
-        cascade="all, delete-orphan"
-    )
-    
     # Future features
     # scenes = relationship("Scene", back_populates="home")
     # automations = relationship("Automation", back_populates="home")

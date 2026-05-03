@@ -2,7 +2,7 @@
 Board CRUD operations
 Database queries for board management
 """
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
@@ -94,6 +94,19 @@ def get_all_boards(
     boards = query.order_by(Board.created_at.desc()).offset(skip).limit(limit).all()
     
     return boards, total
+
+def get_all_paired_boards(db: Session) -> List[Board]:
+    """Get all paired boards"""
+    return db.query(Board).filter(Board.home_id.isnot(None)).all()
+
+def update_board_status(db: Session, board_id: UUID, status: str) -> Board:
+    """Update board status"""
+    board = db.query(Board).filter(Board.id == board_id).first()
+    if board:
+        board.status = status
+        db.commit()
+        db.refresh(board)
+    return board
 
 
 # ============================================

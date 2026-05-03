@@ -1,10 +1,9 @@
 """
-Timer Service
-Background worker for timer execution with retry logic
+Timer Service 
+Background worker for timer execution with FCM push notifications
 """
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -12,22 +11,28 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.crud import timer as crud_timer
 from app.crud import device as crud_device
+from app.crud import home as crud_home
 from app.services.mqtt_service import publish_device_control
 from app.services.websocket_manager import manager as ws_manager
+from app.services.fcm_service import (
+    notify_timer_executed,
+    notify_timer_executed_to_home_members
+)
 
 logger = logging.getLogger(__name__)
 
 
 class TimerService:
     """
-    Timer execution service
+    Enhanced timer execution service with FCM notifications
     
     Features:
     - Check pending timers every second
     - Execute timers via MQTT
     - Retry logic (3 attempts, 30s interval)
     - Mark as failed after retries
-    - WebSocket notifications
+    - WebSocket real-time notifications
+    - FCM push notifications to home owner and members
     """
     
     def __init__(self):
@@ -50,7 +55,7 @@ class TimerService:
             self.scheduler.start()
             self.running = True
             
-            logger.info("Timer service started")
+            logger.info("Timer service started with FCM notification support")
             
         except Exception as e:
             logger.error(f"Error starting timer service: {str(e)}")
@@ -92,7 +97,7 @@ class TimerService:
     
     async def _execute_timer(self, db, timer):
         """
-        Execute a single timer
+        Execute a single timer with FCM notifications
         
         Args:
             db: Database session
@@ -129,7 +134,7 @@ class TimerService:
                     if updated_timer and updated_timer.status == "pending":
                         await self._execute_timer(db, updated_timer)
                 else:
-                    # Max retries reached
+                    # Max retries reached - SEND FAILURE NOTIFICATIONS
                     logger.error(f"Timer {timer.id} failed after {timer.retry_count} retries")
                     crud_timer.mark_timer_failed(db, timer.id)
                     
@@ -141,6 +146,17 @@ class TimerService:
                             device.id,
                             success=False
                         )
+                    
+                    # ============================================
+                    # SEND FCM FAILURE NOTIFICATIONS
+                    # ============================================
+                    await self._send_timer_fcm_notifications(
+                        db=db,
+                        board=board,
+                        device=device,
+                        timer=timer,
+                        success=False
+                    )
                 
                 return
             
@@ -173,6 +189,17 @@ class TimerService:
                         device.id,
                         success=True
                     )
+                
+                # ============================================
+                # SEND FCM SUCCESS NOTIFICATIONS
+                # ============================================
+                await self._send_timer_fcm_notifications(
+                    db=db,
+                    board=board,
+                    device=device,
+                    timer=timer,
+                    success=True
+                )
             else:
                 logger.error(f"Failed to send MQTT command for timer {timer.id}")
                 
@@ -190,10 +217,103 @@ class TimerService:
                             device.id,
                             success=False
                         )
+                    
+                    # Send FCM failure notifications
+                    await self._send_timer_fcm_notifications(
+                        db=db,
+                        board=board,
+                        device=device,
+                        timer=timer,
+                        success=False
+                    )
                 
         except Exception as e:
             logger.error(f"Error in timer execution: {str(e)}")
             crud_timer.mark_timer_failed(db, timer.id)
+    
+    async def _send_timer_fcm_notifications(
+        self,
+        db,
+        board,
+        device,
+        timer,
+        success: bool
+    ):
+        """
+        Send FCM notifications for timer execution
+        
+        Args:
+            db: Database session
+            board: Board model instance
+            device: Device model instance
+            timer: Timer model instance
+            success: Whether timer executed successfully
+        """
+        try:
+            if not board.home_id:
+                logger.debug("Board not paired to home, skipping FCM notifications")
+                return
+            
+            # Get home details
+            home = crud_home.get_home_by_id(db, board.home_id)
+            if not home:
+                logger.warning(f"Home not found: {board.home_id}")
+                return
+            
+            device_name = device.name or f"Device {device.id}"
+            home_name = home.name
+            timer_id = str(timer.id)
+            
+            # ============================================
+            # SEND TO HOME OWNER
+            # ============================================
+            if home.owner and home.owner.fcm_token:
+                notification_sent = notify_timer_executed(
+                    fcm_token=home.owner.fcm_token,
+                    device_name=device_name,
+                    success=success,
+                    timer_id=timer_id,
+                    home_name=home_name
+                )
+                
+                if notification_sent:
+                    logger.info(
+                        f"Sent timer {'success' if success else 'failure'} "
+                        f"notification to owner for timer {timer.id}"
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to send notification to owner for timer {timer.id}"
+                    )
+            
+            # ============================================
+            # SEND TO HOME MEMBERS (with FCM tokens)
+            # ============================================
+            members_with_fcm = crud_home.get_home_members_with_fcm(db, board.home_id)
+            
+            if members_with_fcm:
+                member_tokens = [
+                    m.user.fcm_token 
+                    for m in members_with_fcm 
+                    if m.user.fcm_token
+                ]
+                
+                if member_tokens:
+                    success_count = notify_timer_executed_to_home_members(
+                        fcm_tokens=member_tokens,
+                        device_name=device_name,
+                        success=success,
+                        timer_id=timer_id,
+                        home_name=home_name
+                    )
+                    
+                    logger.info(
+                        f"Sent timer {'success' if success else 'failure'} "
+                        f"notification to {success_count}/{len(member_tokens)} members"
+                    )
+            
+        except Exception as e:
+            logger.error(f"Error sending timer FCM notifications: {str(e)}")
 
 
 # Global timer service instance
