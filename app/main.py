@@ -119,8 +119,8 @@ async def root():
 # HEALTH CHECK
 # ============================================
 
-@app.get("/health")
-@app.head("/health")
+@app.get("/healthz")
+@app.head("/healthz")
 async def health_check():
     """Health check endpoint"""
     return {
