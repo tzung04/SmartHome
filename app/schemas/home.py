@@ -44,13 +44,6 @@ class HomeDetailResponse(HomeResponse):
     
     model_config = {"from_attributes": True}
 
-
-class HomeListResponse(BaseModel):
-    """User's homes list response"""
-    items: list["HomeWithRole"]
-    total: int
-
-
 class HomeWithRole(BaseModel):
     """Home with user's role in that home"""
     id: UUID
@@ -60,6 +53,11 @@ class HomeWithRole(BaseModel):
     created_at: datetime
     
     model_config = {"from_attributes": True}
+
+class HomeListResponse(BaseModel):
+    """User's homes list response"""
+    items: list[HomeWithRole]
+    total: int
 
 
 # ============================================
@@ -162,5 +160,4 @@ class RoomResponse(BaseModel):
 # Forward references
 from app.schemas.user import UserResponse
 HomeDetailResponse.model_rebuild()
-HomeWithRole.model_rebuild()
 MemberResponse.model_rebuild()

@@ -7,34 +7,6 @@ from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel, Field
 
-
-# ============================================
-# BOARD PAIRING
-# ============================================
-
-class BoardPair(BaseModel):
-    """Pair board to home request"""
-    mac_address: str = Field(..., pattern=r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$')
-    home_id: UUID
-
-
-class BoardPairResponse(BaseModel):
-    """Board pairing response"""
-    board: "BoardResponse"
-    devices: list["DeviceResponse"]
-    message: str = "Board paired successfully"
-
-
-# ============================================
-# BOARD UPDATE
-# ============================================
-
-class BoardUpdate(BaseModel):
-    """Update board request"""
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    room_id: Optional[UUID] = None
-
-
 # ============================================
 # BOARD RESPONSE
 # ============================================
@@ -69,6 +41,32 @@ class BoardListResponse(BaseModel):
     items: list[BoardDetailResponse]
     total: int
 
+
+# ============================================
+# BOARD PAIRING
+# ============================================
+
+class BoardPair(BaseModel):
+    """Pair board to home request"""
+    mac_address: str = Field(..., pattern=r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$')
+    home_id: UUID
+
+
+class BoardPairResponse(BaseModel):
+    """Board pairing response"""
+    board: BoardResponse
+    devices: list["DeviceResponse"]
+    message: str = "Board paired successfully"
+
+
+# ============================================
+# BOARD UPDATE
+# ============================================
+
+class BoardUpdate(BaseModel):
+    """Update board request"""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    room_id: Optional[UUID] = None
 
 # ============================================
 # OTA UPDATE
