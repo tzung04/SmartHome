@@ -67,8 +67,6 @@ def init_db() -> None:
     """
     Initialize database
     Creates all tables if they don't exist
-    
-    Note: In production, use Alembic migrations instead
     """
     Base.metadata.create_all(bind=engine)
 
@@ -77,6 +75,6 @@ def drop_db() -> None:
     """
     Drop all tables
     WARNING: This deletes all data!
-    Only use in development/testing
+    Only use in /testing
     """
     Base.metadata.drop_all(bind=engine)

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # APPLICATION
     # ============================================
     app_name: str = "Smart Home IoT"
-    app_version: str = "2.0.0"
+    app_version: str = "1.0.0"
     environment: str = "development"
     debug: bool = True
     
@@ -108,7 +108,7 @@ class Settings(BaseSettings):
     # ============================================
     # DEVELOPMENT
     # ============================================
-    auto_reload: bool = True
+    auto_reload: bool = False
     sql_echo: bool = False
 
     # ============================================
