@@ -9,6 +9,22 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ============================================
+# USER INFO
+# ============================================
+
+class UserResponse(BaseModel):
+    """User information response"""
+    id: UUID
+    email: str
+    full_name: Optional[str] = None
+    role: str  # 'super_admin' or 'user'
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+    
+    model_config = {"from_attributes": True}
+
+# ============================================
 # REGISTER
 # ============================================
 
@@ -39,7 +55,7 @@ class UserRegister(BaseModel):
 
 class UserRegisterResponse(BaseModel):
     """User registration response"""
-    user: "UserResponse"
+    user: UserResponse
     message: str = "Registration successful. Please verify your email."
     
     model_config = {"from_attributes": True}
@@ -61,7 +77,7 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int  # seconds
-    user: "UserResponse"
+    user: UserResponse
 
 
 # ============================================
@@ -144,24 +160,6 @@ class ChangePasswordRequest(BaseModel):
 class ChangePasswordResponse(BaseModel):
     """Change password response"""
     message: str = "Password changed successfully"
-
-
-# ============================================
-# USER INFO
-# ============================================
-
-class UserResponse(BaseModel):
-    """User information response"""
-    id: UUID
-    email: str
-    full_name: Optional[str] = None
-    role: str  # 'super_admin' or 'user'
-    is_active: bool
-    is_verified: bool
-    created_at: datetime
-    
-    model_config = {"from_attributes": True}
-
 
 # ============================================
 # STANDARD API RESPONSE

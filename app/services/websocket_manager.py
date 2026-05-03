@@ -4,7 +4,7 @@ Manages WebSocket connections for real-time updates
 """
 from typing import Dict, Set, Optional
 from uuid import UUID
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 import json
 import logging
 import asyncio
