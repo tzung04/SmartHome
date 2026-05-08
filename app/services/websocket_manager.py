@@ -64,9 +64,14 @@ class ConnectionManager:
         if user_id in self.user_connections:
             self.user_connections[user_id].discard(websocket)
             
-            # Clean up empty sets
             if not self.user_connections[user_id]:
                 del self.user_connections[user_id]
+                
+                # Cleanup home subscriptions khi user không còn kết nối nào
+                for home_id in list(self.home_members.keys()):
+                    self.home_members[home_id].discard(user_id)
+                    if not self.home_members[home_id]:
+                        del self.home_members[home_id]
         
         logger.info(f"WebSocket disconnected: user {user_id}")
     
@@ -291,6 +296,24 @@ class ConnectionManager:
         }
         
         await self.broadcast_to_home(message, home_id)
+
+    async def notify_card_learned(
+        self,
+        user_id: UUID,
+        board_id: UUID,
+        card_uid: str
+    ):
+        """
+        Notify card owner (home owner) về thẻ mới được học.
+        Chỉ gửi tới user cụ thể, không broadcast toàn home.
+        """
+        message = {
+            "type": "card_learned",
+            "board_id": str(board_id),
+            "card_uid": card_uid,
+            "timestamp": self._get_timestamp()
+        }
+        await self.send_personal_message(message, user_id)
     
     # ============================================
     # UTILITIES
@@ -353,3 +376,7 @@ async def notify_access_log(
 ):
     """Notify access log"""
     await manager.notify_access_log(home_id, board_id, card_uid, result, image_url)
+
+async def notify_card_learned(user_id: UUID, board_id: UUID, card_uid: str):
+    """Notify card learned event to home owner"""
+    await manager.notify_card_learned(user_id, board_id, card_uid)

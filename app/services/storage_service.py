@@ -5,7 +5,7 @@ Supabase Storage client for firmware files and access log images
 from typing import Optional
 import base64
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from supabase import create_client, Client
 import logging
 
@@ -158,7 +158,7 @@ class StorageService:
             image_bytes = base64.b64decode(image_base64)
             
             # Generate unique filename
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             mac_clean = board_mac.replace(":", "")
             file_path = f"{mac_clean}/{timestamp}.jpg"
             

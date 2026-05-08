@@ -95,6 +95,13 @@ def get_all_boards(
     
     return boards, total
 
+def get_home_boards_by_type(db: Session, home_id: UUID, board_type: str) -> list[Board]:
+    """Get all boards of a specific type in a home"""
+    return db.query(Board).filter(
+        Board.home_id == home_id,
+        Board.board_type == board_type
+    ).all()
+
 def get_all_paired_boards(db: Session) -> List[Board]:
     """Get all paired boards"""
     return db.query(Board).filter(Board.home_id.isnot(None)).all()

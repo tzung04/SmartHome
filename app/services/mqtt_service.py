@@ -259,22 +259,48 @@ class MQTTService:
             board_mac = topic.split('/')[1]
             data = json.loads(payload)
             status = data.get('status', 'online')
-            
+
             db = SessionLocal()
             try:
                 board = crud_board.update_board_heartbeat(db, board_mac)
-                
+
                 if board and board.home_id:
                     self._run_async(
                         ws_manager.notify_board_status_change(
                             board.home_id, board.id, status
                         )
                     )
+
+                    # Nếu board ESP32_ACCESS_V1 vừa online → sync cards ngay
+                    if board.board_type == "ESP32_ACCESS_V1":
+                        self._run_async(self._sync_cards_to_board(board))
+
             finally:
                 db.close()
-                
+
         except Exception as e:
             logger.error(f"Error handling board status: {str(e)}")
+
+    async def _sync_cards_to_board(self, board):
+        """Sync active cards tới một board ESP32_ACCESS_V1 cụ thể"""
+        try:
+            db = SessionLocal()
+            try:
+                active_cards = crud_access_control.get_home_cards(
+                    db, board.home_id, is_active=True
+                )
+                cards_payload = [
+                    {"card_uid": c.card_uid, "owner_name": c.owner_name}
+                    for c in active_cards
+                ]
+                self.publish_card_sync(board.mac_address, cards_payload)
+                logger.info(
+                    f"Synced {len(cards_payload)} cards to board {board.mac_address}"
+                )
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Error syncing cards to board: {str(e)}")
     
     def _handle_device_state(self, topic: str, payload: str):
         """Handle device state update"""
@@ -341,12 +367,43 @@ class MQTTService:
             logger.error(f"Error handling sensor data: {str(e)}")
     
     def _handle_card_learned(self, topic: str, payload: str):
-        """Handle card learned event"""
+        """
+        Handle card learned event.
+        Notify home owner để xác nhận đặt tên và đăng ký thẻ.
+
+        Topic: boards/{board_mac}/card/learned
+        Payload: {"card_uid": "AABBCCDD"}
+        """
         try:
             board_mac = topic.split('/')[1]
             data = json.loads(payload)
             card_uid = data.get('card_uid')
+
+            if not card_uid:
+                logger.warning(f"Card learned event missing card_uid from {board_mac}")
+                return
+
             logger.info(f"Card learned: {board_mac} - {card_uid}")
+
+            db = SessionLocal()
+            try:
+                board = crud_board.get_board_by_mac(db, board_mac)
+                if not board or not board.home_id:
+                    return
+
+                home = crud_home.get_home_by_id(db, board.home_id)
+                if not home or not home.owner_id:
+                    return
+
+                # Notify owner qua WebSocket để app hiển thị popup đăng ký thẻ
+                self._run_async(
+                    ws_manager.notify_card_learned(
+                        home.owner_id, board.id, card_uid
+                    )
+                )
+            finally:
+                db.close()
+
         except Exception as e:
             logger.error(f"Error handling card learned: {str(e)}")
     

@@ -2,7 +2,6 @@
 Timer Service 
 Background worker for timer execution with FCM push notifications
 """
-import asyncio
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -124,15 +123,8 @@ class TimerService:
                 
                 # Check if can retry
                 if timer.can_retry():
-                    crud_timer.increment_timer_retry(db, timer.id)
-                    
-                    # Schedule retry after 30 seconds
-                    await asyncio.sleep(30)
-                    
-                    # Recursive call for retry
-                    updated_timer = crud_timer.get_timer_by_id(db, timer.id)
-                    if updated_timer and updated_timer.status == "pending":
-                        await self._execute_timer(db, updated_timer)
+                    crud_timer.reschedule_timer_retry(db, timer.id, delay_seconds=30)
+                    logger.info(f"Timer {timer.id} rescheduled (retry {timer.retry_count + 1}/3)")
                 else:
                     # Max retries reached - SEND FAILURE NOTIFICATIONS
                     logger.error(f"Timer {timer.id} failed after {timer.retry_count} retries")
@@ -205,7 +197,8 @@ class TimerService:
                 
                 # Retry logic
                 if timer.can_retry():
-                    crud_timer.increment_timer_retry(db, timer.id)
+                    crud_timer.reschedule_timer_retry(db, timer.id, delay_seconds=30)
+                    logger.info(f"Timer {timer.id} rescheduled after MQTT failure (retry {timer.retry_count + 1}/3)")
                 else:
                     crud_timer.mark_timer_failed(db, timer.id)
                     

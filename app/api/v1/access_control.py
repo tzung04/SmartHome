@@ -29,6 +29,23 @@ from app.services.mqtt_service import mqtt_service
 
 router = APIRouter(tags=["Access Control"])
 
+# Helper
+def _sync_cards_to_home(db, home_id: UUID) -> None:
+    """Sync active cards tới tất cả ESP32_ACCESS_V1 boards online trong home"""
+    from app.crud import board as crud_board
+    boards = crud_board.get_home_boards_by_type(db, home_id, "ESP32_ACCESS_V1")
+    if not boards:
+        return
+
+    active_cards = crud_access.get_home_cards(db, home_id, is_active=True)
+    cards_payload = [
+        {"card_uid": c.card_uid, "owner_name": c.owner_name}
+        for c in active_cards
+    ]
+
+    for board in boards:
+        if board.status == "online":
+            mqtt_service.publish_card_sync(board.mac_address, cards_payload)
 
 # ============================================
 # CARDS
@@ -69,8 +86,10 @@ async def create_card(
         owner_user_id=card_data.owner_user_id,
         valid_until=card_data.valid_until
     )
-    
-    # TODO: Sync cards to all ESP32-CAM boards in this home
+
+    # Sync cards to all ESP32_ACCESS_V1 boards in this home
+    _sync_cards_to_home(db, home_id)
+
     
     return card
 
@@ -167,6 +186,9 @@ async def deactivate_card(
     
     card = crud_access.deactivate_card(db, card_id)
     
+    # Sync updated card list to boards
+    _sync_cards_to_home(db, card.home_id)
+
     return CardDeactivateResponse(
         card_id=card_id,
         is_active=False
@@ -199,8 +221,12 @@ async def delete_card(
             detail="Only home owner can delete cards"
         )
     
+    home_id = card.home_id
     crud_access.delete_card(db, card_id)
-    
+
+    # Sync updated card list to boards
+    _sync_cards_to_home(db, home_id)
+
     return None
 
 

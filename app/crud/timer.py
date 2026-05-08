@@ -4,7 +4,7 @@ Database queries for timer management
 """
 from typing import Optional, Any
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
@@ -164,14 +164,18 @@ def cancel_timer(db: Session, timer_id: UUID) -> Optional[Timer]:
     return db_timer
 
 
-def increment_timer_retry(db: Session, timer_id: UUID) -> Optional[Timer]:
-    """Increment timer retry count"""
+def reschedule_timer_retry(db: Session, timer_id: UUID, delay_seconds: int = 30) -> Optional[Timer]:
+    """
+    Increment retry count và dời execute_at thêm delay_seconds.
+    Timer sẽ được pick up lại tự nhiên bởi scheduler.
+    """
     db_timer = get_timer_by_id(db, timer_id)
     if not db_timer:
         return None
-    
+
     db_timer.retry_count += 1
-    
+    db_timer.execute_at = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+
     db.commit()
     db.refresh(db_timer)
     return db_timer

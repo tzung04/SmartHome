@@ -2,12 +2,14 @@
 Smart Home IoT Backend
 FastAPI application entry point
 """
+import json
+from uuid import UUID
+
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import logging
 
 from app.core.config import settings
-from app.core.database import engine, Base
 from app.api.v1 import api_router
 from app.services.mqtt_service import start_mqtt_service, stop_mqtt_service
 from app.services.timer_service import start_timer_service, stop_timer_service
@@ -141,7 +143,7 @@ async def health_check():
 
 from fastapi import WebSocket, WebSocketDisconnect
 from app.services.websocket_manager import manager as ws_manager
-from app.core.permissions import decode_token
+from app.core.security import decode_token
 from app.crud import user as crud_user
 from app.core.database import SessionLocal
 
@@ -180,16 +182,43 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
     
     try:
         while True:
-            # Keep connection alive
             data = await websocket.receive_text()
-            
-            # Handle ping/pong
+
             if data == "ping":
                 await websocket.send_text("pong")
-    
+                continue
+
+            try:
+                message = json.loads(data)
+                msg_type = message.get("type")
+
+                if msg_type == "subscribe_home":
+                    home_id_str = message.get("home_id")
+                    if home_id_str:
+                        hid = UUID(home_id_str)
+                        db = SessionLocal()
+                        try:
+                            from app.crud import home as crud_home
+                            if crud_home.is_home_member(db, hid, user_id):
+                                ws_manager.register_home_member(user_id, hid)
+                                await websocket.send_text(json.dumps({
+                                    "type": "subscribed",
+                                    "home_id": home_id_str
+                                }))
+                        finally:
+                            db.close()
+
+                elif msg_type == "unsubscribe_home":
+                    home_id_str = message.get("home_id")
+                    if home_id_str:
+                        ws_manager.unregister_home_member(user_id, UUID(home_id_str))
+
+            except (json.JSONDecodeError, ValueError):
+                pass  # Ignore non-JSON / invalid UUID
+
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, user_id)
-    
+
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         ws_manager.disconnect(websocket, user_id)
