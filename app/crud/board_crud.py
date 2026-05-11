@@ -8,8 +8,8 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.board import Board, BoardStatus
-from app.schemas.board import BoardUpdate
+from app.models.board_model import Board, BoardStatus
+from app.schemas.board_schemas import BoardUpdate
 
 
 # ============================================
@@ -129,9 +129,6 @@ def update_board(db: Session, board_id: UUID, board_update: BoardUpdate) -> Opti
     if board_update.name is not None:
         db_board.name = board_update.name
     
-    if board_update.room_id is not None:
-        db_board.room_id = board_update.room_id
-    
     db.commit()
     db.refresh(db_board)
     return db_board
@@ -169,7 +166,6 @@ def unpair_board(db: Session, board_id: UUID) -> Optional[Board]:
         return None
     
     db_board.home_id = None
-    db_board.room_id = None
     db_board.status = BoardStatus.UNPAIRED
     db_board.paired_at = None
     

@@ -40,7 +40,7 @@ def get_current_user(
         HTTPException 401: If token is invalid or user not found
     """
     # Import here to avoid circular imports
-    from app.models.user import User, UserRole
+    from app.models.user_model import User, UserRole
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -100,7 +100,7 @@ def require_super_admin(
         HTTPException 403: If user is not super admin
     """
     # Import here to avoid circular imports
-    from app.models.user import UserRole
+    from app.models.user_model import UserRole
     
     if current_user.role != UserRole.SUPER_ADMIN:
         raise HTTPException(
@@ -136,8 +136,8 @@ def require_home_access(
         HTTPException 403: If not authorized
     """
     # Import here to avoid circular imports
-    from app.models.user import UserRole
-    from app.models.home import HomeMember, MemberRole
+    from app.models.user_model import UserRole
+    from app.models.home_model import HomeMember, MemberRole
     
     # Default required role
     if required_role is None:
@@ -191,7 +191,7 @@ def require_home_owner(
         HomeMember object if owner, None if super admin
     """
     # Import here to avoid circular imports
-    from app.models.home import MemberRole
+    from app.models.home_model import MemberRole
     
     return require_home_access(home_id, MemberRole.OWNER, db, current_user)
 
@@ -226,11 +226,11 @@ def require_resource_access(
         HTTPException 404: If resource not found
     """
     # Import models here to avoid circular imports
-    from app.models.user import UserRole
-    from app.models.home import MemberRole
-    from app.models.board import Board
-    from app.models.device import Device
-    from app.models.timer import Timer
+    from app.models.user_model import UserRole
+    from app.models.home_model import MemberRole
+    from app.models.board_model import Board
+    from app.models.device_model import Device
+    from app.models.timer_model import Timer
     
     # Default required role
     if required_role is None:
@@ -307,7 +307,7 @@ def is_home_owner(
         True if user is owner, False otherwise
     """
     # Import here to avoid circular imports
-    from app.models.home import HomeMember, MemberRole
+    from app.models.home_model import HomeMember, MemberRole
     
     membership = db.query(HomeMember).filter(
         HomeMember.home_id == home_id,
@@ -335,7 +335,7 @@ def is_home_member(
         True if user is member, False otherwise
     """
     # Import here to avoid circular imports
-    from app.models.home import HomeMember
+    from app.models.home_model import HomeMember
     
     membership = db.query(HomeMember).filter(
         HomeMember.home_id == home_id,

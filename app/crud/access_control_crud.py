@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
-from app.models.access_control import AccessCard, AccessLog, AccessResult
+from app.models.access_control_model import AccessCard, AccessLog, AccessResult
 
 
 # ============================================
@@ -217,7 +217,7 @@ def get_home_logs(
     Returns:
         Tuple of (logs list, total count)
     """
-    from app.models.board import Board
+    from app.models.board_model import Board
     
     query = db.query(AccessLog).join(Board).filter(Board.home_id == home_id)
     
@@ -346,7 +346,7 @@ def count_access_logs(
     result: Optional[AccessResult] = None
 ) -> int:
     """Get number of access logs"""
-    from app.models.board import Board
+    from app.models.board_model import Board
     
     query = db.query(func.count(AccessLog.id)).join(Board).filter(
         Board.home_id == home_id
@@ -365,7 +365,7 @@ def get_access_stats(db: Session, home_id: UUID, days: int = 7) -> dict:
     Returns:
         Dict with granted/denied/unknown counts
     """
-    from app.models.board import Board
+    from app.models.board_model import Board
     
     threshold = datetime.now(timezone.utc) - timedelta(days=days)
     

@@ -15,10 +15,10 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.crud import board as crud_board
-from app.crud import device as crud_device
-from app.crud import access_control as crud_access_control
-from app.crud import home as crud_home
+from app.crud import board_crud as crud_board
+from app.crud import device_crud as crud_device
+from app.crud import access_control_crud as crud_access_control
+from app.crud import home_crud as crud_home
 from app.services.fcm_service import (
     notify_access_event,
     notify_access_event_to_home_members,
@@ -28,7 +28,7 @@ from app.services.fcm_service import (
 )
 from app.services.websocket_manager import manager as ws_manager
 from app.services.storage_service import upload_access_log_image
-from app.models.access_control import AccessResult
+from app.models.access_control_model import AccessResult
 
 logger = logging.getLogger(__name__)
 

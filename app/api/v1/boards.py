@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.crud import home as crud_home
-from app.crud import board as crud_board
-from app.schemas.board import (
+from app.models.user_model import User
+from app.crud import home_crud as crud_home
+from app.crud import board_crud as crud_board
+from app.schemas.board_schemas import (
     BoardPair,
     BoardPairResponse,
     BoardUpdate,
@@ -112,7 +112,7 @@ async def list_my_boards(
     
     # Convert to detail response
     board_details = []
-    from app.crud import device as crud_device
+    from app.crud import device_crud as crud_device
     
     for board in boards:
         devices_count = crud_device.count_board_devices(db, board.id)
@@ -128,7 +128,6 @@ async def list_my_boards(
             paired_at=board.paired_at,
             created_at=board.created_at,
             home_id=board.home_id,
-            room_id=board.room_id,
             devices_count=devices_count
         )
         
@@ -168,7 +167,7 @@ async def get_board(
             )
     
     # Get devices count
-    from app.crud import device as crud_device
+    from app.crud import device_crud as crud_device
     devices_count = crud_device.count_board_devices(db, board.id)
     
     return BoardDetailResponse(
@@ -182,9 +181,7 @@ async def get_board(
         paired_at=board.paired_at,
         created_at=board.created_at,
         home_id=board.home_id,
-        room_id=board.room_id,
         devices_count=devices_count,
-        room=board.room
     )
 
 

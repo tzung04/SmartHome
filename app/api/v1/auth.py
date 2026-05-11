@@ -18,8 +18,8 @@ from app.core.security import (
     verify_otp as verify_otp_hash
 )
 from app.core.config import settings
-from app.crud import user as crud_user
-from app.schemas.auth import (
+from app.crud import user_crud as crud_user
+from app.schemas.auth_schemas import (
     UserRegister,
     UserLogin,
     TokenResponse,
@@ -33,10 +33,10 @@ from app.schemas.auth import (
     ChangePasswordResponse,
     UserResponse
 )
-from app.schemas.user import UserResponse as UserDetailResponse
+from app.schemas.user_schemas import UserResponse as UserDetailResponse
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.models.password_reset import PasswordResetOTP
+from app.models.user_model import User
+from app.models.password_reset_model import PasswordResetOTP
 from app.services.email_service import send_otp_email, send_welcome_email
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])

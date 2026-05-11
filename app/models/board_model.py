@@ -78,13 +78,6 @@ class Board(Base):
         index=True
     )
     
-    room_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("rooms.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True
-    )
-    
     name = Column(
         String(255)
         # User-friendly name, defaults to board type name
@@ -129,7 +122,6 @@ class Board(Base):
     # ============================================
     
     home = relationship("Home", back_populates="boards")
-    room = relationship("Room", back_populates="boards")
     
     devices = relationship(
         "Device",

@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.crud import home as crud_home
-from app.schemas.home import (
+from app.models.user_model import User
+from app.crud import home_crud as crud_home
+from app.schemas.home_schemas import (
     HomeCreate,
     HomeUpdate,
     HomeResponse,
@@ -63,7 +63,7 @@ async def list_my_homes(
     homes_with_roles = crud_home.get_user_homes(db, current_user.id)
     
     # Convert to HomeWithRole schema
-    from app.schemas.home import HomeWithRole
+    from app.schemas.home_schemas import HomeWithRole
     
     items = []
     for home, role in homes_with_roles:
@@ -115,7 +115,7 @@ async def get_home(
     # Get counts
     members_count = crud_home.count_home_members(db, home_id)
     
-    from app.crud import board as crud_board
+    from app.crud import board_crud as crud_board
     boards_count = crud_board.count_home_boards(db, home_id)
     
     # Build response

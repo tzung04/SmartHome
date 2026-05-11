@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     mqtt_username: str
     mqtt_password: str
     mqtt_use_tls: bool = True
-    mqtt_client_id: str = "smarthome_backend"
+    mqtt_client_id: str = "smarthome_backend_local"
     
     # ============================================
     # SUPABASE STORAGE

@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.crud import home as crud_home
-from app.crud import board as crud_board
-from app.crud import device as crud_device
-from app.schemas.device import (
+from app.models.user_model import User
+from app.crud import home_crud as crud_home
+from app.crud import board_crud as crud_board
+from app.crud import device_crud as crud_device
+from app.schemas.device_schemas import (
     DeviceControl,
     DeviceControlResponse,
     DeviceUpdate,
@@ -85,6 +85,7 @@ async def list_devices(
         DeviceDetailResponse(
             id=d.id,
             board_id=d.board_id,
+            room_id=d.room_id,
             device_type=d.device_type.value,
             name=d.name,
             gpio=d.gpio,
@@ -135,6 +136,7 @@ async def get_device(
     return DeviceDetailResponse(
         id=device.id,
         board_id=device.board_id,
+        room_id=device.room_id,
         device_type=device.device_type.value,
         name=device.name,
         gpio=device.gpio,

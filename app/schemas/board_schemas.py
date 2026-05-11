@@ -29,8 +29,6 @@ class BoardResponse(BaseModel):
 class BoardDetailResponse(BoardResponse):
     """Detailed board response with relationships"""
     home_id: Optional[UUID] = None
-    room_id: Optional[UUID] = None
-    room: Optional["RoomResponse"] = None
     devices_count: int = 0
     
     model_config = {"from_attributes": True}
@@ -66,7 +64,6 @@ class BoardPairResponse(BaseModel):
 class BoardUpdate(BaseModel):
     """Update board request"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
-    room_id: Optional[UUID] = None
 
 # ============================================
 # OTA UPDATE
@@ -110,7 +107,6 @@ class BoardHeartbeat(BaseModel):
 
 
 # Forward references
-from app.schemas.device import DeviceResponse
-from app.schemas.home import RoomResponse
+from app.schemas.device_schemas import DeviceResponse
 BoardPairResponse.model_rebuild()
 BoardDetailResponse.model_rebuild()

@@ -130,5 +130,5 @@ class AccessLogImageUploadResponse(BaseModel):
 
 
 # Forward references
-from app.schemas.board import BoardResponse
+from app.schemas.board_schemas import BoardResponse
 AccessLogDetailResponse.model_rebuild()

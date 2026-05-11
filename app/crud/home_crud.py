@@ -7,10 +7,10 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.home import Home, HomeMember, MemberRole
-from app.models.floor import Floor, Room
-from app.models.user import User
-from app.schemas.home import HomeCreate, HomeUpdate, FloorCreate, RoomCreate, RoomUpdate
+from app.models.home_model import Home, HomeMember, MemberRole
+from app.models.floor_model import Floor, Room
+from app.models.user_model import User
+from app.schemas.home_schemas import HomeCreate, HomeUpdate, FloorCreate, RoomCreate, RoomUpdate
 
 
 # ============================================

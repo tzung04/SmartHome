@@ -8,9 +8,9 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
-from app.models.device import Device, DeviceType
-from app.models.history import DeviceHistory, SensorData
-from app.schemas.device import DeviceUpdate
+from app.models.device_model import Device, DeviceType
+from app.models.history_model import DeviceHistory, SensorData
+from app.schemas.device_schemas import DeviceUpdate
 
 
 # ============================================
@@ -57,7 +57,7 @@ def get_board_devices(db: Session, board_id: UUID) -> list[Device]:
 
 def get_home_devices(db: Session, home_id: UUID) -> list[Device]:
     """Get all devices in a home (via boards)"""
-    from app.models.board import Board
+    from app.models.board_model import Board
     
     return db.query(Device).join(Board).filter(
         Board.home_id == home_id
@@ -90,6 +90,9 @@ def update_device(db: Session, device_id: UUID, device_update: DeviceUpdate) -> 
     
     if device_update.position_y is not None:
         db_device.position_y = device_update.position_y
+
+    if device_update.room_id is not None:
+        db_device.room_id = device_update.room_id
     
     db.commit()
     db.refresh(db_device)
@@ -359,7 +362,7 @@ def count_devices(db: Session) -> int:
 
 def count_home_devices(db: Session, home_id: UUID) -> int:
     """Get number of devices in a home"""
-    from app.models.board import Board
+    from app.models.board_model import Board
     
     return db.query(func.count(Device.id)).join(Board).filter(
         Board.home_id == home_id

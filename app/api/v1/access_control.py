@@ -10,12 +10,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.models.access_control import AccessResult
-from app.crud import home as crud_home
-from app.crud import board as crud_board
-from app.crud import access_control as crud_access
-from app.schemas.access_control import (
+from app.models.user_model import User
+from app.models.access_control_model import AccessResult
+from app.crud import home_crud as crud_home
+from app.crud import board_crud as crud_board
+from app.crud import access_control_crud as crud_access
+from app.schemas.access_control_schemas import (
     CardCreate,
     CardUpdate,
     CardResponse,
@@ -32,7 +32,7 @@ router = APIRouter(tags=["Access Control"])
 # Helper
 def _sync_cards_to_home(db, home_id: UUID) -> None:
     """Sync active cards tới tất cả ESP32_ACCESS_V1 boards online trong home"""
-    from app.crud import board as crud_board
+    from app.crud import board_crud as crud_board
     boards = crud_board.get_home_boards_by_type(db, home_id, "ESP32_ACCESS_V1")
     if not boards:
         return

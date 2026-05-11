@@ -170,11 +170,7 @@ class Room(Base):
     # ============================================
     
     floor = relationship("Floor", back_populates="rooms")
-    
-    boards = relationship(
-        "Board",
-        back_populates="room"
-    )
+    devices = relationship("Device", back_populates="room")
     
     # ============================================
     # METHODS

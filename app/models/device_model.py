@@ -75,6 +75,13 @@ class Device(Base):
         nullable=False,
         index=True
     )
+
+    room_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("rooms.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
     
     device_type = Column(
         SQLEnum(DeviceType, name='device_type'),
@@ -128,6 +135,7 @@ class Device(Base):
     # ============================================
     
     board = relationship("Board", back_populates="devices")
+    room = relationship("Room", back_populates="devices")
     
     history = relationship(
         "DeviceHistory",

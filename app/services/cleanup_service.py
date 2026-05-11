@@ -9,9 +9,9 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.crud import device as crud_device
-from app.crud import timer as crud_timer
-from app.crud import access_control as crud_access_control
+from app.crud import device_crud as crud_device
+from app.crud import timer_crud as crud_timer
+from app.crud import access_control_crud as crud_access_control
 from app.services.storage_service import storage_service
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ class CleanupService:
             logger.info(f"Deleted {deleted_timers} old timer records")
             
             # 6. Cleanup expired password reset OTPs
-            from app.models.password_reset import PasswordResetOTP
+            from app.models.password_reset_model import PasswordResetOTP
             from datetime import datetime, timezone
             
             deleted_otps = db.query(PasswordResetOTP).filter(

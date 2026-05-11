@@ -16,16 +16,16 @@ from app.core.config import settings
 from app.core.database import Base
 
 # Import all models (IMPORTANT!)
-from app.models.user import User
-from app.models.password_reset import PasswordResetOTP
-from app.models.home import Home, HomeMember
-from app.models.floor import Floor, Room
-from app.models.board import Board
-from app.models.device import Device
-from app.models.history import DeviceHistory, SensorData
-from app.models.timer import Timer
-from app.models.access_control import AccessCard, AccessLog
-from app.models.firmware import Firmware
+from app.models.user_model import User
+from app.models.password_reset_model import PasswordResetOTP
+from app.models.home_model import Home, HomeMember
+from app.models.floor_model import Floor, Room
+from app.models.board_model import Board
+from app.models.device_model import Device
+from app.models.history_model import DeviceHistory, SensorData
+from app.models.timer_model import Timer
+from app.models.access_control_model import AccessCard, AccessLog
+from app.models.firmware_model import Firmware
 
 
 # this is the Alembic Config object, which provides

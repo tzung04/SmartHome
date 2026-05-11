@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.crud import home as crud_home
-from app.crud import device as crud_device
-from app.schemas.device import (
+from app.models.user_model import User
+from app.crud import home_crud as crud_home
+from app.crud import device_crud as crud_device
+from app.schemas.device_schemas import (
     SensorDataResponse,
     SensorDataLatest
 )

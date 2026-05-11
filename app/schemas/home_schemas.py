@@ -158,6 +158,6 @@ class RoomResponse(BaseModel):
 
 
 # Forward references
-from app.schemas.user import UserResponse
+from app.schemas.user_schemas import UserResponse
 HomeDetailResponse.model_rebuild()
 MemberResponse.model_rebuild()

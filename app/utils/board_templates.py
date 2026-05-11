@@ -2,7 +2,7 @@
 # BOARD TEMPLATES
 # ============================================
 
-from app.models.device import DeviceType
+from app.models.device_model import DeviceType
 
 
 BOARD_TEMPLATES = {

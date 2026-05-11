@@ -7,8 +7,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.models.user import User, UserRole
-from app.schemas.user import UserCreate, UserUpdate
+from app.models.user_model import User, UserRole
+from app.schemas.user_schemas import UserCreate, UserUpdate
 from app.core.security import hash_password
 
 

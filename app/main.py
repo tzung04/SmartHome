@@ -144,7 +144,7 @@ async def health_check():
 from fastapi import WebSocket, WebSocketDisconnect
 from app.services.websocket_manager import manager as ws_manager
 from app.core.security import decode_token
-from app.crud import user as crud_user
+from app.crud import user_crud as crud_user
 from app.core.database import SessionLocal
 
 
@@ -198,7 +198,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                         hid = UUID(home_id_str)
                         db = SessionLocal()
                         try:
-                            from app.crud import home as crud_home
+                            from app.crud import home_crud as crud_home
                             if crud_home.is_home_member(db, hid, user_id):
                                 ws_manager.register_home_member(user_id, hid)
                                 await websocket.send_text(json.dumps({

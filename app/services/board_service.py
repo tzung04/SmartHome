@@ -7,9 +7,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 import logging
 
-from app.models.board import Board
-from app.models.device import Device, DeviceType
-from app.crud import device as crud_device
+from app.models.board_model import Board
+from app.models.device_model import Device, DeviceType
+from app.crud import device_crud as crud_device
 from app.utils.board_templates import BOARD_TEMPLATES
 
 logger = logging.getLogger(__name__)

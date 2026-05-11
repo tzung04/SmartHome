@@ -8,9 +8,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.crud import timer as crud_timer
-from app.crud import device as crud_device
-from app.crud import home as crud_home
+from app.crud import timer_crud as crud_timer
+from app.crud import device_crud as crud_device
+from app.crud import home_crud as crud_home
 from app.services.mqtt_service import publish_device_control
 from app.services.websocket_manager import manager as ws_manager
 from app.services.fcm_service import (

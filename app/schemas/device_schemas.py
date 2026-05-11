@@ -33,6 +33,7 @@ class DeviceControlResponse(BaseModel):
 class DeviceUpdate(BaseModel):
     """Update device request"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
+    room_id: Optional[UUID] = None
     position_x: Optional[float] = None
     position_y: Optional[float] = None
 
@@ -45,6 +46,7 @@ class DeviceResponse(BaseModel):
     """Device response model"""
     id: UUID
     board_id: UUID
+    room_id: Optional[UUID] = None
     device_type: str
     name: str
     gpio: Optional[int] = None
@@ -125,7 +127,7 @@ class SensorDataLatest(BaseModel):
 
 
 # Forward references
-from app.schemas.board import BoardResponse
-from app.schemas.user import UserResponse
+from app.schemas.board_schemas import BoardResponse
+from app.schemas.user_schemas import UserResponse
 DeviceDetailResponse.model_rebuild()
 DeviceHistoryEntry.model_rebuild()

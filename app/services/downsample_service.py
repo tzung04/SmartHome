@@ -9,7 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.crud import device as crud_device
+from app.crud import device_crud as crud_device
 
 logger = logging.getLogger(__name__)
 

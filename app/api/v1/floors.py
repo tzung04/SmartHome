@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.crud import home as crud_home
-from app.schemas.home import (
+from app.models.user_model import User
+from app.crud import home_crud as crud_home
+from app.schemas.home_schemas import (
     FloorCreate,
     FloorResponse,
     RoomCreate,
@@ -149,7 +149,7 @@ async def create_room(
     room = crud_home.create_room(db, floor_id, room_data)
     
     # Add devices count
-    from app.crud import device as crud_device
+    from app.crud import device_crud as crud_device
     room.devices_count = 0  # Initially no devices
     
     return room
@@ -185,8 +185,8 @@ async def list_rooms(
     rooms = crud_home.get_floor_rooms(db, floor_id)
     
     # Add devices count for each room
-    from app.crud import board as crud_board
-    from app.crud import device as crud_device
+    from app.crud import board_crud as crud_board
+    from app.crud import device_crud as crud_device
     
     for room in rooms:
         # Count devices via boards in room

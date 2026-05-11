@@ -9,19 +9,19 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import require_super_admin
-from app.models.user import User
-from app.models.firmware import Firmware
-from app.crud import user as crud_user
-from app.crud import board as crud_board
-from app.crud import device as crud_device
-from app.schemas.firmware import (
+from app.models.user_model import User
+from app.models.firmware_model import Firmware
+from app.crud import user_crud as crud_user
+from app.crud import board_crud as crud_board
+from app.crud import device_crud as crud_device
+from app.schemas.firmware_schemas import (
     FirmwareResponse,
     FirmwareDetailResponse,
     FirmwareListResponse,
     FirmwareDeleteResponse
 )
-from app.schemas.board import BoardOTARequest, BoardOTAResponse
-from app.schemas.user import UserListResponse, UserBanRequest, UserBanResponse
+from app.schemas.board_schemas import BoardOTARequest, BoardOTAResponse
+from app.schemas.user_schemas import UserListResponse, UserBanRequest, UserBanResponse
 from app.services.storage_service import upload_firmware, delete_firmware
 from app.services.mqtt_service import publish_ota_update
 
@@ -354,7 +354,7 @@ async def get_system_stats(
     
     Returns counts for users, homes, boards, devices
     """
-    from app.crud import home as crud_home
+    from app.crud import home_crud as crud_home
     
     stats = {
         "users": {

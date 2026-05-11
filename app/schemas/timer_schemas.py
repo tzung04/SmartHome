@@ -78,5 +78,5 @@ class TimerCancelResponse(BaseModel):
 
 
 # Forward references
-from app.schemas.device import DeviceResponse
+from app.schemas.device_schemas import DeviceResponse
 TimerDetailResponse.model_rebuild()

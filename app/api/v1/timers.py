@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.crud import home as crud_home
-from app.crud import device as crud_device
-from app.crud import timer as crud_timer
-from app.schemas.timer import (
+from app.models.user_model import User
+from app.crud import home_crud as crud_home
+from app.crud import device_crud as crud_device
+from app.crud import timer_crud as crud_timer
+from app.schemas.timer_schemas import (
     TimerCreate,
     TimerResponse,
     TimerDetailResponse,
@@ -87,7 +87,7 @@ async def list_timers(
     - Filter by device_id, home_id, or status
     - If no filters, returns user's timers
     """
-    from app.models.timer import TimerStatus
+    from app.models.timer_model import TimerStatus
     
     if device_id:
         # Get device and check access

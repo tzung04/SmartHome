@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
-from app.models.user import User
-from app.models.home import MemberRole
-from app.crud import home as crud_home
-from app.crud import user as crud_user
-from app.schemas.home import (
+from app.models.user_model import User
+from app.models.home_model import MemberRole
+from app.crud import home_crud as crud_home
+from app.crud import user_crud as crud_user
+from app.schemas.home_schemas import (
     MemberInvite,
     MemberResponse,
     MemberListResponse,

@@ -4,7 +4,7 @@ Request and response models for all API endpoints
 """
 
 # Auth schemas
-from app.schemas.auth import (
+from app.schemas.auth_schemas import (
     UserRegister,
     UserRegisterResponse,
     UserLogin,
@@ -23,7 +23,7 @@ from app.schemas.auth import (
 )
 
 # User schemas
-from app.schemas.user import (
+from app.schemas.user_schemas import (
     UserCreate,
     UserUpdate,
     UserDetailResponse,
@@ -33,7 +33,7 @@ from app.schemas.user import (
 )
 
 # Home schemas
-from app.schemas.home import (
+from app.schemas.home_schemas import (
     HomeCreate,
     HomeUpdate,
     HomeResponse,
@@ -54,7 +54,7 @@ from app.schemas.home import (
 )
 
 # Board schemas
-from app.schemas.board import (
+from app.schemas.board_schemas import (
     BoardPair,
     BoardPairResponse,
     BoardUpdate,
@@ -68,7 +68,7 @@ from app.schemas.board import (
 )
 
 # Device schemas
-from app.schemas.device import (
+from app.schemas.device_schemas import (
     DeviceControl,
     DeviceControlResponse,
     DeviceUpdate,
@@ -83,7 +83,7 @@ from app.schemas.device import (
 )
 
 # Timer schemas
-from app.schemas.timer import (
+from app.schemas.timer_schemas import (
     TimerCreate,
     TimerResponse,
     TimerDetailResponse,
@@ -92,7 +92,7 @@ from app.schemas.timer import (
 )
 
 # Access control schemas
-from app.schemas.access_control import (
+from app.schemas.access_control_schemas import (
     CardCreate,
     CardUpdate,
     CardResponse,
@@ -109,7 +109,7 @@ from app.schemas.access_control import (
 )
 
 # Firmware schemas
-from app.schemas.firmware import (
+from app.schemas.firmware_schemas import (
     FirmwareUpload,
     FirmwareResponse,
     FirmwareDetailResponse,

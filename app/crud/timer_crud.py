@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
-from app.models.timer import Timer, TimerStatus
+from app.models.timer_model import Timer, TimerStatus
 
 
 # ============================================
@@ -65,8 +65,8 @@ def get_home_timers(
     status: Optional[TimerStatus] = None
 ) -> list[Timer]:
     """Get all timers in a home (via devices)"""
-    from app.models.device import Device
-    from app.models.board import Board
+    from app.models.device_model import Device
+    from app.models.board_model import Board
     
     query = db.query(Timer).join(Device).join(Board).filter(
         Board.home_id == home_id
@@ -242,8 +242,8 @@ def count_pending_timers(db: Session) -> int:
 
 def count_home_timers(db: Session, home_id: UUID, status: Optional[TimerStatus] = None) -> int:
     """Get number of timers in a home"""
-    from app.models.device import Device
-    from app.models.board import Board
+    from app.models.device_model import Device
+    from app.models.board_model import Board
     
     query = db.query(func.count(Timer.id)).join(Device).join(Board).filter(
         Board.home_id == home_id
