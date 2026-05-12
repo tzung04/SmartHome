@@ -185,19 +185,12 @@ async def list_rooms(
     rooms = crud_home.get_floor_rooms(db, floor_id)
     
     # Add devices count for each room
-    from app.crud import board_crud as crud_board
-    from app.crud import device_crud as crud_device
+    from app.models.device_model import Device
     
     for room in rooms:
-        # Count devices via boards in room
-        boards = db.query(crud_board.Board).filter(
-            crud_board.Board.room_id == room.id
-        ).all()
-        
-        devices_count = 0
-        for board in boards:
-            devices_count += crud_device.count_board_devices(db, board.id)
-        
+        devices_count = db.query(Device).filter(
+            Device.room_id == room.id
+        ).count()
         room.devices_count = devices_count
     
     return rooms

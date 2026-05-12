@@ -31,7 +31,6 @@ class Board(Base):
         mac_address: Board MAC address (unique identifier)
         board_type: Board type (e.g., 'ESP8266_CONTROL_V1', 'ESP32_ACCESS_V1')
         home_id: Home UUID (nullable for unpaired boards)
-        room_id: Room UUID (nullable)
         name: User-friendly board name
         firmware_version: Current firmware version
         status: Board status (unpaired/paired/online/offline)

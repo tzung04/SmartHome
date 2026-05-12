@@ -108,6 +108,7 @@ class CleanupService:
             
             # 6. Cleanup expired password reset OTPs
             from app.models.password_reset_model import PasswordResetOTP
+            from app.models.pending_registration_model import PendingRegistration
             from datetime import datetime, timezone
             
             deleted_otps = db.query(PasswordResetOTP).filter(
@@ -115,6 +116,13 @@ class CleanupService:
             ).delete()
             db.commit()
             logger.info(f"Deleted {deleted_otps} expired OTPs")
+
+            # 7. Cleanup expired pending registrations
+            deleted_pending = db.query(PendingRegistration).filter(
+                PendingRegistration.expires_at < datetime.now(timezone.utc)
+            ).delete()
+            db.commit()
+            logger.info(f"Deleted {deleted_pending} expired pending registrations")
             
             logger.info("Daily cleanup completed successfully")
             

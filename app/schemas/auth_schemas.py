@@ -62,6 +62,41 @@ class UserRegisterResponse(BaseModel):
 
 
 # ============================================
+# REGISTER — 2-STEP (OTP EMAIL VERIFY)
+# ============================================
+
+class RegisterInitiateRequest(BaseModel):
+    """Bước 1: Gửi yêu cầu đăng ký, server gửi OTP về email"""
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=100)
+    full_name: str = Field(..., min_length=1, max_length=255)
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if not any(c.isupper() for c in v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not any(c.islower() for c in v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Password must contain at least one digit')
+        return v
+
+
+class RegisterInitiateResponse(BaseModel):
+    """Response bước 1: thông báo OTP đã gửi"""
+    email: str
+    otp_expires_at: datetime
+    message: str = "OTP sent to your email. Valid for 10 minutes."
+
+
+class RegisterVerifyRequest(BaseModel):
+    """Bước 2: Xác nhận OTP để hoàn tất đăng ký"""
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6, pattern=r'^\d{6}$')
+
+
+# ============================================
 # LOGIN
 # ============================================
 

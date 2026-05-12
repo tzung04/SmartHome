@@ -31,8 +31,12 @@ from app.schemas.auth_schemas import (
     ResetPasswordResponse,
     ChangePasswordRequest,
     ChangePasswordResponse,
-    UserResponse
+    UserResponse,
+    RegisterInitiateRequest,
+    RegisterInitiateResponse,
+    RegisterVerifyRequest,
 )
+from app.models.pending_registration_model import PendingRegistration
 from app.schemas.user_schemas import UserResponse as UserDetailResponse
 from app.core.permissions import get_current_user
 from app.models.user_model import User
@@ -43,46 +47,157 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 # ============================================
-# REGISTER
+# REGISTER — GỬI OTP XÁC THỰC EMAIL
 # ============================================
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(
-    user_data: UserRegister,
+@router.post("/register/initiate", response_model=RegisterInitiateResponse)
+async def register_initiate(
+    user_data: RegisterInitiateRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Register new user
-    
-    - Email must be unique
-    - Password validated for strength
-    - Sends welcome email
+    Gửi OTP xác thực email
+
+    - Kiểm tra email chưa tồn tại trong users
+    - Kiểm tra email chưa có pending request (nếu có thì ghi đè record cũ)
+    - Hash password, tạo OTP 6 số
+    - Lưu vào pending_registrations
+    - Gửi OTP qua email
     """
-    # Check if email already exists
+    # Kiểm tra email đã đăng ký chưa
     existing_user = crud_user.get_user_by_email(db, user_data.email)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
+
+    # Xóa pending request cũ nếu có (user request lại OTP)
+    db.query(PendingRegistration).filter(
+        PendingRegistration.email == user_data.email
+    ).delete()
+    db.commit()
+
     # Hash password
     hashed_pwd = hash_password(user_data.password)
-    
-    # Create user
-    user = crud_user.create_user(
-        db,
-        user_data,
-        hashed_pwd
+
+    # Tạo OTP
+    otp = generate_otp()
+    otp_hashed = hash_otp(otp)
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.otp_expire_minutes
     )
-    
-    # Send welcome email
+
+    # Lưu pending registration
+    pending = PendingRegistration(
+        email=user_data.email,
+        hashed_password=hashed_pwd,
+        full_name=user_data.full_name,
+        otp_hash=otp_hashed,
+        expires_at=expires_at,
+    )
+    db.add(pending)
+    db.commit()
+
+    # Gửi OTP email
+    from app.services.email_service import send_verification_email
+    try:
+        send_verification_email(user_data.email, otp)
+    except Exception:
+        # Rollback pending record nếu gửi mail thất bại
+        db.delete(pending)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send OTP email"
+        )
+
+    return RegisterInitiateResponse(
+        email=user_data.email,
+        otp_expires_at=expires_at,
+    )
+
+
+# ============================================
+# REGISTER — XÁC NHẬN OTP, TẠO USER
+# ============================================
+
+@router.post("/register/verify", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register_verify(
+    request: RegisterVerifyRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Xác nhận OTP và tạo tài khoản
+
+    - Tìm pending registration theo email (mới nhất, chưa hết hạn)
+    - Verify OTP + kiểm tra attempts
+    - Tạo user mới với is_verified=True
+    - Xóa pending registration
+    - Gửi welcome email
+    """
+    # Tìm pending registration mới nhất còn hạn
+    pending = db.query(PendingRegistration).filter(
+        PendingRegistration.email == request.email,
+        PendingRegistration.expires_at > datetime.now(timezone.utc)
+    ).order_by(PendingRegistration.created_at.desc()).first()
+
+    if not pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid registration request found. Please register again."
+        )
+
+    # Kiểm tra số lần nhập sai
+    if pending.attempts >= settings.otp_max_attempts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Maximum OTP attempts exceeded. Please register again."
+        )
+
+    # Verify OTP
+    if not verify_otp_hash(request.otp, pending.otp_hash):
+        pending.increment_attempts()
+        db.commit()
+        remaining = settings.otp_max_attempts - pending.attempts
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid OTP. {remaining} attempts remaining."
+        )
+
+    # Double-check email chưa được đăng ký trong lúc chờ OTP
+    if crud_user.get_user_by_email(db, request.email):
+        db.delete(pending)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+
+    # Tạo user trực tiếp — is_verified=True ngay vì đã xác thực email
+    from app.models.user_model import UserRole
+    user = User(
+        email=pending.email,
+        hashed_password=pending.hashed_password,
+        full_name=pending.full_name,
+        role=UserRole.USER,
+        is_active=True,
+        is_verified=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    # Xóa pending record
+    db.delete(pending)
+    db.commit()
+
+    # Gửi welcome email (không fail nếu lỗi)
     try:
         send_welcome_email(user.email, user.full_name)
-    except Exception as e:
-        # Log error but don't fail registration
+    except Exception:
         pass
-    
+
     return user
 
 

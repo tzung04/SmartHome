@@ -15,9 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.core.config import settings
 from app.core.database import Base
 
-# Import all models (IMPORTANT!)
+# Import all models
 from app.models.user_model import User
 from app.models.password_reset_model import PasswordResetOTP
+from app.models.pending_registration_model import PendingRegistration
 from app.models.home_model import Home, HomeMember
 from app.models.floor_model import Floor, Room
 from app.models.board_model import Board
