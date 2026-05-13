@@ -28,6 +28,7 @@ from app.services.fcm_service import (
 )
 from app.services.websocket_manager import manager as ws_manager
 from app.models.access_control_model import AccessResult
+from app.crud import pairing_session_crud as crud_pairing
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,8 @@ class MQTTService:
             # Route to handler
             if '/lwt' in topic:
                 self._handle_lwt(topic, payload)
+            elif '/pairing' in topic:
+                self._handle_pairing_mode(topic, payload)
             elif '/status' in topic:
                 self._handle_board_status(topic, payload)
             elif '/state' in topic:
@@ -199,6 +202,7 @@ class MQTTService:
         """Subscribe to MQTT topics"""
         topics = [
             ("boards/+/lwt", 0),
+            ("boards/+/pairing", 0),
             ("boards/+/status", 0),
             ("boards/+/state", 0),
             ("boards/+/sensor", 0),
@@ -211,6 +215,79 @@ class MQTTService:
     # ============================================
     # MESSAGE HANDLERS
     # ============================================
+
+    def _handle_pairing_mode(self, topic: str, payload: str):
+        """
+        Handle pairing mode request từ board.
+
+        Board giữ nút >= 5s → publish topic này → server tạo pairing session 30s.
+        Đồng thời tạo/update board record trong DB (upsert).
+
+        Topic: boards/{board_mac}/pairing
+        Payload:
+        {
+            "mac": "AA:BB:CC:DD:EE:FF",
+            "board_type": "ESP8266_CONTROL_V1",
+            "firmware_version": "1.0.0"     
+        }
+        """
+        try:
+            board_mac = topic.split('/')[1]
+            data = json.loads(payload)
+
+            board_type = data.get('board_type')
+            firmware_version = data.get('firmware_version')
+
+            if not board_type:
+                logger.warning(f"Pairing request missing board_type from {board_mac}")
+                return
+
+            logger.info(f"Pairing mode activated: {board_mac} ({board_type})")
+
+            db = SessionLocal()
+            try:
+                # Upsert board record — tạo mới nếu chưa có, update firmware nếu đã có
+                board = crud_board.get_board_by_mac(db, board_mac)
+                if not board:
+                    board = crud_board.create_board(
+                        db,
+                        mac_address=board_mac,
+                        board_type=board_type,
+                        firmware_version=firmware_version
+                    )
+                    logger.info(f"New board registered via pairing: {board_mac}")
+                else:
+                    # Cập nhật firmware version nếu có
+                    if firmware_version and board.firmware_version != firmware_version:
+                        board.firmware_version = firmware_version
+                        db.commit()
+
+                # Nếu board đã paired rồi thì không tạo session
+                if board.home_id:
+                    logger.warning(
+                        f"Board {board_mac} already paired to home {board.home_id}, "
+                        f"ignoring pairing request"
+                    )
+                    return
+
+                # Tạo pairing session (xóa session cũ nếu có)
+                session = crud_pairing.create_pairing_session(
+                    db,
+                    mac_address=board_mac,
+                    board_type=board_type,
+                    firmware_version=firmware_version
+                )
+
+                logger.info(
+                    f"Pairing session created: {board_mac}, "
+                    f"expires at {session.expires_at}"
+                )
+
+            finally:
+                db.close()
+
+        except Exception as e:
+            logger.error(f"Error handling pairing mode: {str(e)}")
 
     def _handle_lwt(self, topic: str, payload: str):
         """
@@ -691,6 +768,31 @@ class MQTTService:
             logger.error(f"Error publishing OTA: {str(e)}")
             return False
 
+    def publish_paired(self, board_mac: str, home_id: str, home_name: str) -> bool:
+        """
+        Notify board rằng đã được pair thành công.
+        Board dùng thông tin này để lưu vào LittleFS và đổi trạng thái LED.
+
+        Topic: boards/{mac}/paired
+        QoS: 1 — đảm bảo board nhận được
+        """
+        try:
+            topic = f"boards/{board_mac}/paired"
+            payload = json.dumps({
+                "home_id": home_id,
+                "home_name": home_name
+            })
+            result = self.client.publish(topic, payload, qos=1)
+            success = result.rc == mqtt.MQTT_ERR_SUCCESS
+            if success:
+                logger.info(f"Paired notification sent to board {board_mac}")
+            else:
+                logger.warning(f"Failed to send paired notification to {board_mac}")
+            return success
+        except Exception as e:
+            logger.error(f"Error publishing paired: {str(e)}")
+            return False
+
 
 # Global instance
 mqtt_service = MQTTService()
@@ -717,3 +819,7 @@ def publish_card_sync(board_id: str, cards: list) -> bool:
 
 def publish_ota_update(board_id: str, firmware_url: str, md5: str, version: str) -> bool:
     return mqtt_service.publish_ota_update(board_id, firmware_url, md5, version)
+
+
+def publish_paired(board_mac: str, home_id: str, home_name: str) -> bool:
+    return mqtt_service.publish_paired(board_mac, home_id, home_name)

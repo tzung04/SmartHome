@@ -27,6 +27,7 @@ from app.models.history_model import DeviceHistory, SensorData
 from app.models.timer_model import Timer
 from app.models.access_control_model import AccessCard, AccessLog
 from app.models.firmware_model import Firmware
+from app.models.pairing_session_model import PairingSession
 
 
 # this is the Alembic Config object, which provides

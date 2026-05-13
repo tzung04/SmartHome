@@ -13,6 +13,7 @@ from app.crud import device_crud as crud_device
 from app.crud import timer_crud as crud_timer
 from app.crud import access_control_crud as crud_access_control
 from app.services.storage_service import storage_service
+from app.crud import pairing_session_crud as crud_pairing
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,10 @@ class CleanupService:
             ).delete()
             db.commit()
             logger.info(f"Deleted {deleted_pending} expired pending registrations")
+
+            # 8. Cleanup expired pairing sessions
+            deleted_pairing = crud_pairing.cleanup_expired_sessions(db)
+            logger.info(f"Deleted {deleted_pairing} expired pairing sessions")
             
             logger.info("Daily cleanup completed successfully")
             
