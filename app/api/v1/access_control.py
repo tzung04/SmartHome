@@ -5,7 +5,7 @@ RFID card management and access logs
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form, Header
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -26,13 +26,20 @@ from app.schemas.access_control_schemas import (
     AccessLogListResponse
 )
 from app.services.mqtt_service import mqtt_service
+from app.services.storage_service import upload_access_log_image
+from app.services.websocket_manager import manager as ws_manager
+
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Access Control"])
+
 
 # Helper
 def _sync_cards_to_home(db, home_id: UUID) -> None:
     """Sync active cards tới tất cả ESP32_ACCESS_V1 boards online trong home"""
-    from app.crud import board_crud as crud_board
     boards = crud_board.get_home_boards_by_type(db, home_id, "ESP32_ACCESS_V1")
     if not boards:
         return
@@ -47,6 +54,7 @@ def _sync_cards_to_home(db, home_id: UUID) -> None:
         if board.status == "online":
             mqtt_service.publish_card_sync(board.mac_address, cards_payload)
 
+
 # ============================================
 # CARDS
 # ============================================
@@ -60,24 +68,22 @@ async def create_card(
 ):
     """
     Create access card
-    
+
     - Only owner can create cards
     """
-    # Check if user is owner
     if not crud_home.is_home_owner(db, home_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only home owner can create cards"
         )
-    
-    # Check if card UID already exists
+
     existing = crud_access.get_card_by_uid(db, card_data.card_uid)
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Card with this UID already exists"
         )
-    
+
     card = crud_access.create_access_card(
         db,
         home_id=home_id,
@@ -87,10 +93,8 @@ async def create_card(
         valid_until=card_data.valid_until
     )
 
-    # Sync cards to all ESP32_ACCESS_V1 boards in this home
     _sync_cards_to_home(db, home_id)
 
-    
     return card
 
 
@@ -101,20 +105,15 @@ async def list_cards(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get all cards in home
-    
-    - User must be a member
-    """
-    # Check if user is member
+    """Get all cards in home"""
     if not crud_home.is_home_member(db, home_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this home"
         )
-    
+
     cards = crud_access.get_home_cards(db, home_id, is_active)
-    
+
     return CardListResponse(
         items=cards,
         total=len(cards)
@@ -128,33 +127,28 @@ async def update_card(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Update card
-    
-    - Only owner can update cards
-    """
+    """Update card - Only owner can update cards"""
     card = crud_access.get_card_by_id(db, card_id)
-    
+
     if not card:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Card not found"
         )
-    
-    # Check if user is owner of home
+
     if not crud_home.is_home_owner(db, card.home_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only home owner can update cards"
         )
-    
+
     card = crud_access.update_card(
         db,
         card_id,
         owner_name=card_update.owner_name,
         valid_until=card_update.valid_until
     )
-    
+
     return card
 
 
@@ -164,29 +158,23 @@ async def deactivate_card(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Deactivate card
-    
-    - Only owner can deactivate cards
-    """
+    """Deactivate card - Only owner can deactivate cards"""
     card = crud_access.get_card_by_id(db, card_id)
-    
+
     if not card:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Card not found"
         )
-    
-    # Check if user is owner of home
+
     if not crud_home.is_home_owner(db, card.home_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only home owner can deactivate cards"
         )
-    
+
     card = crud_access.deactivate_card(db, card_id)
-    
-    # Sync updated card list to boards
+
     _sync_cards_to_home(db, card.home_id)
 
     return CardDeactivateResponse(
@@ -201,30 +189,24 @@ async def delete_card(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Delete card
-    
-    - Only owner can delete cards
-    """
+    """Delete card - Only owner can delete cards"""
     card = crud_access.get_card_by_id(db, card_id)
-    
+
     if not card:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Card not found"
         )
-    
-    # Check if user is owner of home
+
     if not crud_home.is_home_owner(db, card.home_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only home owner can delete cards"
         )
-    
+
     home_id = card.home_id
     crud_access.delete_card(db, card_id)
 
-    # Sync updated card list to boards
     _sync_cards_to_home(db, home_id)
 
     return None
@@ -241,57 +223,141 @@ async def trigger_card_learning(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Trigger card learning mode on board
-    
-    - Only owner can trigger learning
-    - Board enters learning mode for specified timeout
-    """
+    """Trigger card learning mode on board"""
     board = crud_board.get_board_by_id(db, board_id)
-    
+
     if not board:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Board not found"
         )
-    
-    # Check if board is ESP32-CAM (has RFID)
+
     if board.board_type != "ESP32_ACCESS_V1":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Board does not support RFID"
         )
-    
-    # Check if user is owner
+
     if board.home_id and not crud_home.is_home_owner(db, board.home_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only home owner can trigger card learning"
         )
-    
-    # Check if board is online
+
     if board.status != "online":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Board is {board.status}. Learning requires board to be online"
         )
-    
-    # Send MQTT command
+
     success = mqtt_service.publish_card_learn(
         board.mac_address,
         timeout=request.timeout
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send learning command via MQTT"
         )
-    
+
     return CardLearnResponse(
         board_id=board_id,
         timeout=request.timeout
     )
+
+
+# ============================================
+# ACCESS LOG IMAGE UPLOAD (từ ESP32-CAM qua HTTP)
+# ============================================
+
+@router.post("/boards/access/image", status_code=status.HTTP_200_OK)
+async def upload_access_image(
+    request_id: str = Form(..., description="UUID do ESP32 sinh, khớp với MQTT event"),
+    image: UploadFile = File(..., description="Ảnh JPEG từ ESP32-CAM"),
+    x_board_mac: str = Header(..., alias="X-Board-Mac", description="MAC address của board"),
+    db: Session = Depends(get_db)
+):
+    """
+    Nhận ảnh từ ESP32-CAM sau khi access event.
+    """
+    board = crud_board.get_board_by_mac(db, x_board_mac)
+    if not board:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Board not found"
+        )
+
+    if board.board_type != "ESP32_ACCESS_V1":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Board does not support access image upload"
+        )
+
+    access_log = crud_access.get_log_by_request_id(db, request_id)
+    if not access_log:
+        logger.warning(
+            f"Image upload received but no access_log found: "
+            f"board={x_board_mac}, request_id={request_id}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Access log not found for this request_id. MQTT event may not have arrived yet."
+        )
+
+    if access_log.image_url:
+        logger.warning(f"Duplicate image upload for request_id={request_id}, ignored")
+        return {"message": "Image already uploaded", "image_url": access_log.image_url}
+
+    if image.content_type not in ("image/jpeg", "image/jpg"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only JPEG images are accepted"
+        )
+
+    image_bytes = await image.read()
+
+    max_size = 2 * 1024 * 1024
+    if len(image_bytes) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Image too large. Maximum size is 2MB"
+        )
+
+    image_url = upload_access_log_image(x_board_mac, image_bytes)
+    if not image_url:
+        logger.error(f"Supabase upload failed: board={x_board_mac}, request_id={request_id}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload image to storage"
+        )
+
+    updated_log = crud_access.update_log_image_url(db, request_id, image_url)
+    if not updated_log:
+        logger.error(f"Failed to update access_log image_url: request_id={request_id}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update access log"
+        )
+
+    logger.info(
+        f"Access image uploaded: board={x_board_mac}, "
+        f"request_id={request_id}, url={image_url}"
+    )
+
+    if board.home_id:
+        await ws_manager.notify_access_log_image_ready(
+            home_id=board.home_id,
+            log_id=updated_log.id,
+            request_id=request_id,
+            image_url=image_url
+        )
+
+    return {
+        "message": "Image uploaded successfully",
+        "log_id": str(updated_log.id),
+        "image_url": image_url
+    }
 
 
 # ============================================
@@ -309,22 +375,17 @@ async def list_access_logs(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get access logs for home
-    
-    - Paginated with filters
-    """
-    # Check if user is member
+    """Get access logs for home - paginated with filters"""
     if not crud_home.is_home_member(db, home_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this home"
         )
-    
+
     skip = (page - 1) * limit
-    
+
     access_result = AccessResult(result) if result else None
-    
+
     logs, total = crud_access.get_home_logs(
         db,
         home_id,
@@ -334,9 +395,9 @@ async def list_access_logs(
         start_time=start_time,
         end_time=end_time
     )
-    
+
     pages = (total + limit - 1) // limit
-    
+
     return AccessLogListResponse(
         items=logs,
         total=total,
@@ -353,18 +414,13 @@ async def get_access_stats(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get access statistics for home
-    
-    - Count of granted/denied/unknown access attempts
-    """
-    # Check if user is member
+    """Get access statistics for home"""
     if not crud_home.is_home_member(db, home_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this home"
         )
-    
+
     stats = crud_access.get_access_stats(db, home_id, days)
-    
+
     return stats

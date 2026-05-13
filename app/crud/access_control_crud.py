@@ -173,19 +173,34 @@ def create_access_log(
     board_id: UUID,
     card_uid: str,
     result: AccessResult,
-    image_url: Optional[str] = None
+    request_id: Optional[str] = None,
+    image_url: Optional[str] = None,
 ) -> AccessLog:
-    """Create access log entry"""
-    # Try to find card by UID
+    """
+    Tạo access log entry.
+
+    Hàm này được gọi từ MQTT handler với:
+      - request_id: UUID do ESP32 sinh (dùng để ghép với HTTP image upload)
+      - image_url: None (ảnh chưa có, sẽ được update sau bởi update_log_image_url)
+
+    Args:
+        db: Database session
+        board_id: Board UUID
+        card_uid: RFID card UID
+        result: Access result (granted/denied/unknown_card)
+        request_id: UUID v4 string do ESP32 sinh, nullable
+        image_url: Supabase image URL, nullable
+    """
     card = get_card_by_uid(db, card_uid)
     card_id = card.id if card else None
-    
+
     db_log = AccessLog(
         board_id=board_id,
         card_uid=card_uid,
         card_id=card_id,
         result=result,
-        image_url=image_url
+        request_id=request_id,
+        image_url=image_url,
     )
     db.add(db_log)
     db.commit()
@@ -200,6 +215,25 @@ def create_access_log(
 def get_log_by_id(db: Session, log_id: UUID) -> Optional[AccessLog]:
     """Get log by ID"""
     return db.query(AccessLog).filter(AccessLog.id == log_id).first()
+
+
+def get_log_by_request_id(db: Session, request_id: str) -> Optional[AccessLog]:
+    """
+    Lookup access log bằng request_id do ESP32 sinh.
+
+    Dùng trong HTTP image upload endpoint để tìm log tương ứng
+    trước khi update image_url.
+
+    Args:
+        db: Database session
+        request_id: UUID v4 string do ESP32 sinh
+
+    Returns:
+        AccessLog nếu tìm thấy, None nếu không
+    """
+    return db.query(AccessLog).filter(
+        AccessLog.request_id == request_id
+    ).first()
 
 
 def get_home_logs(
@@ -272,11 +306,26 @@ def get_card_logs(
 # ============================================
 
 def update_log_image(db: Session, log_id: UUID, image_url: str) -> Optional[AccessLog]:
-    """Update access log image URL"""
+    """Update access log image URL by log ID"""
     db_log = get_log_by_id(db, log_id)
     if not db_log:
         return None
     
+    db_log.image_url = image_url
+    db.commit()
+    db.refresh(db_log)
+    return db_log
+
+
+def update_log_image_url(
+    db: Session,
+    request_id: str,
+    image_url: str
+) -> Optional[AccessLog]:
+    db_log = get_log_by_request_id(db, request_id)
+    if not db_log:
+        return None
+
     db_log.image_url = image_url
     db.commit()
     db.refresh(db_log)

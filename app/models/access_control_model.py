@@ -144,8 +144,12 @@ class AccessLog(Base):
     """
     Access log model
     
-    Records all RFID card scan attempts with photos
+    Records all RFID card scan attempts with photos.
     Retention: 7 days (with automatic image cleanup)
+    
+    Luồng tạo log (2 bước):
+      1. MQTT /access  → tạo log với image_url=null, lưu request_id
+      2. HTTP POST /boards/access/image → upload ảnh, update image_url → gửi FCM
     
     Attributes:
         id: Unique identifier (UUID)
@@ -153,7 +157,8 @@ class AccessLog(Base):
         card_uid: Scanned card UID
         card_id: AccessCard UUID (nullable for unknown cards)
         result: Access result (granted/denied/unknown_card)
-        image_url: Supabase Storage URL for photo
+        request_id: UUID do ESP32 sinh, dùng để ghép MQTT event với HTTP image upload
+        image_url: Supabase Storage URL for photo (null cho đến khi HTTP image upload xong)
         created_at: Scan timestamp
     
     Relationships:
@@ -198,11 +203,17 @@ class AccessLog(Base):
         SQLEnum(AccessResult, name='access_result'),
         nullable=False
     )
+
+    request_id = Column(
+        String(36),
+        nullable=True,  
+        index=True,
+        unique=True
+    )
     
     image_url = Column(
-        Text
-        # Supabase Storage public URL
-        # e.g., https://xxx.supabase.co/storage/v1/object/public/access-logs/xxx.jpg
+        Text,
+        nullable=True
     )
     
     created_at = Column(
@@ -235,3 +246,7 @@ class AccessLog(Base):
     def was_granted(self) -> bool:
         """Check if access was granted"""
         return self.result == AccessResult.GRANTED
+
+    def has_image(self) -> bool:
+        """Check if image has been uploaded"""
+        return self.image_url is not None

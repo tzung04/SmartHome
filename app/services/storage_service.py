@@ -141,31 +141,21 @@ class StorageService:
     def upload_access_log_image(
         self,
         board_mac: str,
-        image_base64: str
+        image_bytes: bytes          
     ) -> Optional[str]:
         """
-        Upload access log image
-        
-        Args:
-            board_mac: Board MAC address
-            image_base64: Base64 encoded JPEG image
-            
-        Returns:
-            Public URL of uploaded image or None if failed
+        Upload access log image lên Supabase Storage.
         """
         try:
-            # Decode base64
-            image_bytes = base64.b64decode(image_base64)
-            
             # Generate unique filename
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             mac_clean = board_mac.replace(":", "")
             file_path = f"{mac_clean}/{timestamp}.jpg"
-            
+
             bucket = settings.storage_bucket_access_logs
-            
+
             # Upload image
-            result = self.storage.from_(bucket).upload(
+            self.storage.from_(bucket).upload(
                 path=file_path,
                 file=image_bytes,
                 file_options={
@@ -173,13 +163,13 @@ class StorageService:
                     "cache-control": "3600"
                 }
             )
-            
+
             # Get public URL
             public_url = self.storage.from_(bucket).get_public_url(file_path)
-            
+
             logger.info(f"Access log image uploaded: {file_path}")
             return public_url
-            
+
         except Exception as e:
             logger.error(f"Error uploading access log image: {str(e)}")
             return None

@@ -41,15 +41,9 @@ class UserRegister(BaseModel):
         Validate password strength:
         - Min 8 characters
         - At least 1 uppercase
-        - At least 1 lowercase
-        - At least 1 digit
         """
         if not any(c.isupper() for c in v):
             raise ValueError('Password must contain at least one uppercase letter')
-        if not any(c.islower() for c in v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not any(c.isdigit() for c in v):
-            raise ValueError('Password must contain at least one digit')
         return v
 
 
@@ -76,10 +70,6 @@ class RegisterInitiateRequest(BaseModel):
     def validate_password(cls, v: str) -> str:
         if not any(c.isupper() for c in v):
             raise ValueError('Password must contain at least one uppercase letter')
-        if not any(c.islower() for c in v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not any(c.isdigit() for c in v):
-            raise ValueError('Password must contain at least one digit')
         return v
 
 
@@ -158,10 +148,6 @@ class ResetPasswordRequest(BaseModel):
         """Validate password strength (same as registration)"""
         if not any(c.isupper() for c in v):
             raise ValueError('Password must contain at least one uppercase letter')
-        if not any(c.islower() for c in v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not any(c.isdigit() for c in v):
-            raise ValueError('Password must contain at least one digit')
         return v
 
 
@@ -185,10 +171,6 @@ class ChangePasswordRequest(BaseModel):
         """Validate password strength"""
         if not any(c.isupper() for c in v):
             raise ValueError('Password must contain at least one uppercase letter')
-        if not any(c.islower() for c in v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not any(c.isdigit() for c in v):
-            raise ValueError('Password must contain at least one digit')
         return v
 
 
