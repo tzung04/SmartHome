@@ -340,12 +340,39 @@ class MQTTService:
             board_mac = topic.split('/')[1]
             data = json.loads(payload)
             status = data.get('status', 'online')
+            uptime = data.get('uptime')  
 
             db = SessionLocal()
             try:
-                board = crud_board.update_board_heartbeat(db, board_mac)
+                board = crud_board.get_board_by_mac(db, board_mac)
+                if not board:
+                    return
 
-                if board and board.home_id:
+                if uptime is not None and board.last_seen is not None:
+                    time_offline = (
+                        datetime.now(timezone.utc) - board.last_seen
+                    ).total_seconds()
+
+                    if uptime >= time_offline:
+                        logger.debug(
+                            f"Ignoring stale heartbeat for {board_mac} "
+                            f"(uptime={uptime}s, offline={time_offline:.0f}s)"
+                        )
+                        return  
+
+                board = crud_board.update_board_heartbeat(db, board_mac)
+                if not board:
+                    return
+
+                if board.home_id:
+                    # Chỉ notify online nếu trước đó đã notify offline
+                    was_offline_notified = board.id in self.offline_notified
+                    self.online_boards.add(board.id)
+                    self.offline_notified.discard(board.id)  # clear vì reconnect thật
+
+                    if was_offline_notified:
+                        self._run_async(self._send_online_notifications(board))
+
                     self._run_async(
                         ws_manager.notify_board_status_change(
                             board.home_id, board.id, status
@@ -353,7 +380,7 @@ class MQTTService:
                     )
 
                     # Nếu board ESP32_ACCESS_V1 vừa online → sync cards ngay
-                    if board.board_type == "ESP32_ACCESS_V1":
+                    if board.board_type == "ESP32_ACCESS_V1" and was_offline_notified:
                         self._run_async(self._sync_cards_to_board(board))
 
             finally:
@@ -640,9 +667,11 @@ class MQTTService:
 
             crud_board.update_board_status(db, board.id, "online")
             self.online_boards.add(board.id)
-            self.offline_notified.discard(board.id)
 
-            await self._send_online_notifications(board)
+            # Chỉ gửi notification nếu chưa được gửi bởi _handle_board_status
+            if board.id in self.offline_notified:
+                await self._send_online_notifications(board)
+                self.offline_notified.discard(board.id)  
 
             if board.home_id:
                 await ws_manager.notify_board_status_change(
