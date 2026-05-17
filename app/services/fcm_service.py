@@ -128,18 +128,20 @@ class FCMService:
                 )
             )
             
-            message = messaging.MulticastMessage(
-                notification=messaging.Notification(
-                    title=title,
-                    body=body
-                ),
-                data=data or {},
-                tokens=fcm_tokens,
-                android=android_config
-            )
-            
-            response = messaging.send_multicast(message)
-            logger.info(f"Successfully sent {response.success_count}/{len(fcm_tokens)} notifications")
+            messages = [
+                messaging.Message(
+                    notification=messaging.Notification(title=title, body=body),
+                    data=data or {},
+                    token=token,
+                    android=android_config
+                )
+                for token in fcm_tokens
+            ]
+
+            response = messaging.send_each(messages)
+
+            success_count = response.success_count
+            logger.info(f"Successfully sent {success_count}/{len(fcm_tokens)} notifications")
             
             # Log failed tokens for cleanup
             if response.failure_count > 0:
