@@ -18,7 +18,7 @@ from app.services.downsample_service import start_downsample_service, stop_downs
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logging.getLogger('apscheduler').setLevel(logging.WARNING)

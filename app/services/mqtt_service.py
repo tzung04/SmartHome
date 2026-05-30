@@ -353,7 +353,7 @@ class MQTTService:
                         datetime.now(timezone.utc) - board.last_seen
                     ).total_seconds()
 
-                    if uptime >= time_offline:
+                    if uptime < time_offline:
                         logger.debug(
                             f"Ignoring stale heartbeat for {board_mac} "
                             f"(uptime={uptime}s, offline={time_offline:.0f}s)"
@@ -457,7 +457,7 @@ class MQTTService:
                     return
 
                 devices = crud_device.get_board_devices(db, board.id)
-                sensors = [d for d in devices if 'sensor' in d.device_type.lower()]
+                sensors = [d for d in devices if d.is_sensor()]
 
                 for device in sensors:
                     crud_device.create_sensor_data(db, device.id, sensor_data)
