@@ -103,7 +103,8 @@ def update_device_state(
     db: Session,
     device_id: UUID,
     new_state: dict[str, Any],
-    triggered_by: Optional[UUID] = None
+    triggered_by: Optional[UUID] = None,
+    action="state_changed"
 ) -> Optional[Device]:
     """
     Update device state and log history
@@ -132,7 +133,7 @@ def update_device_state(
     create_device_history(
         db=db,
         device_id=device_id,
-        action="state_changed",
+        action=action,
         old_state=old_state,
         new_state=new_state,
         triggered_by=triggered_by

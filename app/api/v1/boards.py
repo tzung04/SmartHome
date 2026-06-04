@@ -324,5 +324,6 @@ async def delete_board(
             detail="Only home owner can delete boards"
         )
 
+    board = crud_board.unpair_board(db, board_id)
     crud_board.delete_board(db, board_id)
     return None

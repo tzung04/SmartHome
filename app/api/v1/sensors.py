@@ -29,7 +29,7 @@ router = APIRouter(prefix="/sensors", tags=["Sensors"])
 async def get_sensor_data(
     device_id: UUID,
     page: int = Query(1, ge=1),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(100, ge=1, le=2000),
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     current_user: User = Depends(get_current_user),

@@ -2,3 +2,5 @@
 .env
 /docs
 __pycache__
+structs_backend.txt
+structs_android.txt
