@@ -39,7 +39,7 @@ def get_initial_device_state(device_type: DeviceType) -> dict:
         return {"motion_detected": False}
     
     elif device_type == DeviceType.LDR:
-        return {"light_level": 0}
+        return {"is_dark": 0}
     
     elif device_type == DeviceType.RC522:
         return {"last_card_uid": None, "learning_mode": False}

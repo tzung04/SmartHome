@@ -21,7 +21,7 @@ BOARD_TEMPLATES = {
         "devices": [
             {"type": DeviceType.DHT11, "name": "Cảm biến nhiệt độ & độ ẩm", "gpio": 4},
             {"type": DeviceType.PIR, "name": "Cảm biến chuyển động", "gpio": 5},
-            {"type": DeviceType.LDR, "name": "Cảm biến ánh sáng", "gpio": None},  # ADC
+            {"type": DeviceType.LDR, "name": "Cảm biến ánh sáng", "gpio": 12},  
             {"type": DeviceType.RELAY, "name": "Đèn tự động", "gpio": 14},
         ]
     },

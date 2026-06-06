@@ -291,38 +291,28 @@ class MQTTService:
 
     def _handle_lwt(self, topic: str, payload: str):
         """
-        Handle Last Will Testament - board disconnected ungracefully
+        Handle Last Will Testament - board disconnected ungracefully.
 
-        Topic: boards/{board_mac}/lwt
-        Payload: {"status": "offline", "reason": "connection_lost"}
+        LWT chỉ là tín hiệu gợi ý từ MQTT broker khi mất kết nối đột ngột.
+        Không force offline ngay vì:
+        1. LWT có thể đến muộn hoặc sai timing
+        2. Board có thể reconnect ngay sau đó
+        3. Scheduler (_check_board_statuses) sẽ detect offline sau timeout
+
+        → Chỉ xóa khỏi online_boards để scheduler xử lý transition nhanh hơn.
         """
         try:
             board_mac = topic.split('/')[1]
-            logger.warning(f"LWT received for board {board_mac}")
+            logger.warning(f"LWT received for board {board_mac} — will confirm via scheduler")
 
             db = SessionLocal()
             try:
                 board = crud_board.get_board_by_mac(db, board_mac)
                 if not board:
                     return
-
-                # Force offline
-                crud_board.update_board_status(db, board.id, "offline")
+                # Xóa khỏi online_boards → scheduler sẽ detect transition
+                # ngay trong lần check tiếp theo (tối đa 30s)
                 self.online_boards.discard(board.id)
-
-                # Send notifications
-                if board.id not in self.offline_notified:
-                    self._run_async(self._send_offline_notifications(board))
-                    self.offline_notified.add(board.id)
-
-                # WebSocket
-                if board.home_id:
-                    self._run_async(
-                        ws_manager.notify_board_status_change(
-                            board.home_id, board.id, "offline"
-                        )
-                    )
-
             finally:
                 db.close()
 
@@ -331,57 +321,36 @@ class MQTTService:
 
     def _handle_board_status(self, topic: str, payload: str):
         """
-        Handle board heartbeat
+        Handle board heartbeat.
 
-        Topic: boards/{board_mac}/status
-        Payload: {"status": "online", "uptime": 1234, "rssi": -65}
+        Chỉ update last_seen và thêm vào online_boards.
+        Không notify FCM/WS tại đây — để scheduler xử lý transition.
+        Scheduler là nguồn sự thật duy nhất cho online/offline state.
         """
         try:
             board_mac = topic.split('/')[1]
             data = json.loads(payload)
             status = data.get('status', 'online')
-            uptime = data.get('uptime')  
 
             db = SessionLocal()
             try:
-                board = crud_board.get_board_by_mac(db, board_mac)
-                if not board:
-                    return
-
-                if uptime is not None and board.last_seen is not None:
-                    time_offline = (
-                        datetime.now(timezone.utc) - board.last_seen
-                    ).total_seconds()
-
-                    if uptime < time_offline:
-                        logger.debug(
-                            f"Ignoring stale heartbeat for {board_mac} "
-                            f"(uptime={uptime}s, offline={time_offline:.0f}s)"
-                        )
-                        return  
-
+                # Update last_seen
                 board = crud_board.update_board_heartbeat(db, board_mac)
                 if not board:
                     return
 
-                if board.home_id:
-                    # Chỉ notify online nếu trước đó đã notify offline
-                    was_offline_notified = board.id in self.offline_notified
-                    self.online_boards.add(board.id)
-                    self.offline_notified.discard(board.id)  # clear vì reconnect thật
+                # Thêm vào online_boards — scheduler sẽ detect OFFLINE→ONLINE
+                # transition và gửi notification nếu cần
+                self.online_boards.add(board.id)
 
-                    if was_offline_notified:
-                        self._run_async(self._send_online_notifications(board))
-
-                    self._run_async(
-                        ws_manager.notify_board_status_change(
-                            board.home_id, board.id, status
-                        )
-                    )
-
-                    # Nếu board ESP32_ACCESS_V1 vừa online → sync cards ngay
-                    if board.board_type == "ESP32_ACCESS_V1" and was_offline_notified:
+                # Sync cards khi board access vừa reconnect
+                # (detect qua offline_notified — đã được set bởi scheduler)
+                if board.home_id and board.id in self.offline_notified:
+                    self.offline_notified.discard(board.id)
+                    if board.board_type == "ESP32_ACCESS_V1":
                         self._run_async(self._sync_cards_to_board(board))
+
+                logger.debug(f"Heartbeat from {board_mac} — last_seen updated")
 
             finally:
                 db.close()
