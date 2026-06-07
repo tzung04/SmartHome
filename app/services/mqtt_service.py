@@ -481,7 +481,7 @@ class MQTTService:
                 # Notify owner qua WebSocket để app hiển thị popup đăng ký thẻ
                 self._run_async(
                     ws_manager.notify_card_learned(
-                        home.owner_id, board.id, card_uid
+                        board.home_id, board.id, card_uid
                     )
                 )
             finally:
