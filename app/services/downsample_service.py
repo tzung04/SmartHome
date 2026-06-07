@@ -1,137 +1,81 @@
 """
 Downsample Service
-Background worker for sensor data downsampling
-Runs at 4:00 AM every day
+Real-time sensor data downsampling using Redis lock mechanism
 """
 import logging
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-
+from uuid import UUID
+import redis
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.crud import device_crud as crud_device
 
 logger = logging.getLogger(__name__)
 
-
 class DownsampleService:
-    """
-    Sensor data downsampling service
-    
-    Features:
-    - Downsample sensor data older than 24 hours
-    - Keep one reading every 10 minutes
-    - Delete intermediate readings
-    - Reduces storage by 120x
-    
-    Schedule: Daily at 4:00 AM
-    
-    Example:
-    - Raw data: 1 reading every 5 seconds for 24 hours = 17,280 readings/day
-    - Downsampled: 1 reading every 10 minutes = 144 readings/day
-    - Reduction: 17,280 / 144 = 120x
-    """
     
     def __init__(self):
-        """Initialize downsample service"""
-        self.scheduler = AsyncIOScheduler()
-        self.running = False
-    
-    def start(self):
-        """Start downsample service"""
+        """Initialize Redis connection for downsampling lock"""
         try:
-            # Schedule downsample job
-            self.scheduler.add_job(
-                self._run_downsample,
-                trigger=CronTrigger(
-                    hour=settings.downsample_cron_hour,
-                    minute=settings.downsample_cron_minute
-                ),
-                id='sensor_downsample',
-                name='Sensor Data Downsampling',
-                replace_existing=True
+            # Sử dụng from_url để kết nối trực tiếp qua REDIS_URL
+            self.redis_client = redis.Redis.from_url(
+                settings.redis_url, 
+                decode_responses=True
             )
+        except Exception as e:
+            logger.error(f"Failed to initialize Redis client: {str(e)}")
+            self.redis_client = None
+
+    def process_and_save_sensor_data(self, device_id: UUID, sensor_data: dict, interval_seconds: int = 600) -> bool:
+        """
+        Check Redis lock and save data if interval has passed.
+        
+        Args:
+            device_id: UUID of the sensor device
+            sensor_data: Data payload to save
+            interval_seconds: Time to wait before next save (default 600s = 10 mins)
             
-            self.scheduler.start()
-            self.running = True
-            
-            logger.info(f"Downsample service started (scheduled at {settings.downsample_cron_hour}:{settings.downsample_cron_minute:02d})")
+        Returns:
+            True if data was saved, False if skipped
+        """
+        if not self.redis_client:
+            logger.error("Redis client not initialized. Skipping downsample.")
+            return False
+
+        redis_key = f"sensor_lock:{str(device_id)}"
+        
+        try:
+            # Chỉ trả về True nếu key chưa tồn tại, đồng thời set thời gian sống (TTL)
+            is_time_to_save = self.redis_client.set(
+                name=redis_key, 
+                value="locked", 
+                ex=interval_seconds, 
+                nx=True
+            )
+
+            if is_time_to_save:
+                db = SessionLocal()
+                try:
+                    crud_device.create_sensor_data(
+                        db=db, 
+                        device_id=device_id, 
+                        data=sensor_data,
+                        is_downsampled=True 
+                    )
+                    logger.debug(f"Saved downsampled data for sensor {device_id}")
+                    return True
+                finally:
+                    db.close()
+                    
+            return False
             
         except Exception as e:
-            logger.error(f"Error starting downsample service: {str(e)}")
-            raise
-    
-    def stop(self):
-        """Stop downsample service"""
-        if self.scheduler.running:
-            self.scheduler.shutdown()
-            self.running = False
-            logger.info("Downsample service stopped")
-    
-    async def _run_downsample(self):
-        """
-        Run sensor data downsampling
-        
-        Process:
-        1. Get all raw sensor data older than 24 hours
-        2. Group by device
-        3. Keep one reading every 10 minutes
-        4. Delete intermediate readings
-        5. Mark kept readings as downsampled
-        """
-        logger.info("Starting sensor data downsampling...")
-        
-        db = SessionLocal()
-        try:
-            # Downsample data older than 24 hours
-            # Keep one reading every 10 minutes
-            deleted_count = crud_device.downsample_sensor_data(
-                db,
-                hours_old=24,
-                interval_minutes=10
-            )
-            
-            logger.info(f"Downsampling completed: deleted {deleted_count} redundant sensor readings")
-            
-            # Calculate statistics
-            if deleted_count > 0:
-                kept_count = deleted_count // 119  # Approximate (120x reduction)
-                reduction_percent = (deleted_count / (deleted_count + kept_count)) * 100
-                
-                logger.info(
-                    f"Storage reduction: {deleted_count} deleted, "
-                    f"~{kept_count} kept (~{reduction_percent:.1f}% reduction)"
-                )
-            
-        except Exception as e:
-            logger.error(f"Error during downsampling: {str(e)}")
-            db.rollback()
-        finally:
-            db.close()
-    
-    async def run_manual_downsample(self):
-        """
-        Run downsampling manually (for testing or admin trigger)
-        """
-        logger.info("Running manual downsampling...")
-        await self._run_downsample()
+            logger.error(f"Error in Redis downsample process: {str(e)}")
+            return False
 
 
-# Global downsample service instance
+# Global instance
 downsample_service = DownsampleService()
 
-
-# Helper functions for easy import
-def start_downsample_service():
-    """Start downsample service"""
-    downsample_service.start()
-
-
-def stop_downsample_service():
-    """Stop downsample service"""
-    downsample_service.stop()
-
-
-async def run_manual_downsample():
-    """Run downsampling manually"""
-    await downsample_service.run_manual_downsample()
+# Helper function 
+def process_and_save_sensor_data(device_id: UUID, sensor_data: dict, interval_seconds: int = 600) -> bool:
+    return downsample_service.process_and_save_sensor_data(device_id, sensor_data, interval_seconds)

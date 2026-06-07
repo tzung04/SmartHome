@@ -14,7 +14,6 @@ from app.api.v1 import api_router
 from app.services.mqtt_service import start_mqtt_service, stop_mqtt_service
 from app.services.timer_service import start_timer_service, stop_timer_service
 from app.services.cleanup_service import start_cleanup_service, stop_cleanup_service
-from app.services.downsample_service import start_downsample_service, stop_downsample_service
 
 # Configure logging
 logging.basicConfig(
@@ -58,12 +57,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"✗ Failed to start cleanup service: {e}")
     
-    try:
-        start_downsample_service()
-        logger.info("✓ Downsample service started")
-    except Exception as e:
-        logger.error(f"✗ Failed to start downsample service: {e}")
-    
     logger.info("Smart Home IoT Backend started successfully!")
     
     yield
@@ -74,7 +67,6 @@ async def lifespan(app: FastAPI):
     stop_mqtt_service()
     stop_timer_service()
     stop_cleanup_service()
-    stop_downsample_service()
     
     logger.info("Smart Home IoT Backend stopped")
 
@@ -133,7 +125,6 @@ async def health_check():
         "services": {
             "timer": "running",
             "cleanup": "running",
-            "downsample": "running"
         }
     }
 

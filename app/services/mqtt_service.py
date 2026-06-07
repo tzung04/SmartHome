@@ -27,6 +27,7 @@ from app.services.fcm_service import (
     notify_board_status_to_home_members
 )
 from app.services.websocket_manager import manager as ws_manager
+from app.services.downsample_service import process_and_save_sensor_data
 from app.models.access_control_model import AccessResult
 from app.crud import pairing_session_crud as crud_pairing
 
@@ -429,14 +430,16 @@ class MQTTService:
                 sensors = [d for d in devices if d.is_sensor()]
 
                 for device in sensors:
-                    crud_device.create_sensor_data(db, device.id, sensor_data)
-
+                    # WebSocket real-time
                     if board.home_id:
                         self._run_async(
                             ws_manager.notify_sensor_data(
                                 board.home_id, device.id, sensor_data
                             )
                         )
+                    
+                    # Xử lý lưu database định kỳ 10 phút qua Redis
+                    process_and_save_sensor_data(device.id, sensor_data, settings.downsample_interval)
             finally:
                 db.close()
 

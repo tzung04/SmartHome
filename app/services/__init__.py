@@ -68,9 +68,6 @@ from app.services.cleanup_service import (
 # Downsample service
 from app.services.downsample_service import (
     downsample_service,
-    start_downsample_service,
-    stop_downsample_service,
-    run_manual_downsample,
 )
 
 __all__ = [
@@ -124,7 +121,4 @@ __all__ = [
     
     # Downsample
     "downsample_service",
-    "start_downsample_service",
-    "stop_downsample_service",
-    "run_manual_downsample",
 ]

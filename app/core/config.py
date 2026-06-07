@@ -87,8 +87,7 @@ class Settings(BaseSettings):
     timer_check_interval: int = 1  # seconds
     cleanup_cron_hour: int = 3
     cleanup_cron_minute: int = 0
-    downsample_cron_hour: int = 4
-    downsample_cron_minute: int = 0
+    downsample_interval: int = 600
     retention_days_device_history: int = 7
     retention_days_sensor_data: int = 7
     retention_days_access_logs: int = 7
@@ -118,6 +117,11 @@ class Settings(BaseSettings):
         default="{}",
         description="Firebase Admin SDK credentials as JSON string"
     )
+
+    # ============================================
+    # REDIS
+    # ============================================
+    redis_url: str
 
     # Python version
     python_version: str | None = None

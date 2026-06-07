@@ -284,53 +284,6 @@ def get_latest_sensor_data(db: Session, device_id: UUID) -> Optional[SensorData]
     ).order_by(SensorData.created_at.desc()).first()
 
 
-def downsample_sensor_data(db: Session, hours_old: int = 24, interval_minutes: int = 10) -> int:
-    """
-    Downsample old sensor data
-    Keep one reading every N minutes, delete the rest
-    
-    Args:
-        db: Database session
-        hours_old: Only downsample data older than this
-        interval_minutes: Keep one reading per this interval
-        
-    Returns:
-        Number of deleted records
-    """
-    threshold = datetime.now(timezone.utc) - timedelta(hours=hours_old)
-    
-    # Get all raw data older than threshold
-    old_data = db.query(SensorData).filter(
-        and_(
-            SensorData.created_at < threshold,
-            SensorData.is_downsampled == False
-        )
-    ).order_by(SensorData.device_id, SensorData.created_at).all()
-    
-    # Group by device and keep one per interval
-    deleted_count = 0
-    current_device = None
-    last_kept_time = None
-    
-    for data in old_data:
-        if current_device != data.device_id:
-            # New device, reset
-            current_device = data.device_id
-            last_kept_time = None
-        
-        if last_kept_time is None or (data.created_at - last_kept_time).total_seconds() >= interval_minutes * 60:
-            # Keep this record, mark as downsampled
-            data.is_downsampled = True
-            last_kept_time = data.created_at
-        else:
-            # Delete this record
-            db.delete(data)
-            deleted_count += 1
-    
-    db.commit()
-    return deleted_count
-
-
 def cleanup_old_sensor_data(db: Session, days: int = 7) -> int:
     """
     Delete sensor data older than specified days
