@@ -244,13 +244,13 @@ class ConnectionManager:
 
     async def notify_card_learned(
         self,
-        user_id: UUID,
+        home_id: UUID, 
         board_id: UUID,
         card_uid: str
     ):
         """
-        Notify card owner (home owner) về thẻ mới được học.
-        Chỉ gửi tới user cụ thể, không broadcast toàn home.
+        Notify home members về thẻ mới được học.
+        Broadcast toàn home để client tự xử lý UI dựa trên quyền.
         """
         message = {
             "type": "card_learned",
@@ -258,7 +258,7 @@ class ConnectionManager:
             "card_uid": card_uid,
             "timestamp": self._get_timestamp()
         }
-        await self.send_personal_message(message, user_id)
+        await self.broadcast_to_home(message, home_id)
 
     # ============================================
     # UTILITIES
@@ -333,6 +333,6 @@ async def notify_access_log_image_ready(
     await manager.notify_access_log_image_ready(home_id, log_id, request_id, image_url)
 
 
-async def notify_card_learned(user_id: UUID, board_id: UUID, card_uid: str):
-    """Notify card learned event to home owner"""
-    await manager.notify_card_learned(user_id, board_id, card_uid)
+async def notify_card_learned(home_id: UUID, board_id: UUID, card_uid: str):
+    """Notify card learned event to home"""
+    await manager.notify_card_learned(home_id, board_id, card_uid)
