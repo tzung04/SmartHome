@@ -398,8 +398,11 @@ class MQTTService:
                 device = next((d for d in devices if d.gpio == device_gpio), None)
 
                 if device:
+                    current_state = device.state or {}
+                    merged_state = {**current_state, **new_state}
+                    
                     crud_device.update_device_state(
-                        db, device.id, new_state, triggered_by=None
+                        db, device.id, merged_state, triggered_by=None
                     )
 
                     if board.home_id:
