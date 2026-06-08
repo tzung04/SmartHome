@@ -327,10 +327,7 @@ async def upload_access_image(
     image_url = upload_access_log_image(x_board_mac, image_bytes)
     if not image_url:
         logger.error(f"Supabase upload failed: board={x_board_mac}, request_id={request_id}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload image to storage"
-        )
+        return {"status": "success", "warning": "image_upload_failed"}
 
     updated_log = crud_access.update_log_image_url(db, request_id, image_url)
     if not updated_log:
