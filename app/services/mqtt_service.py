@@ -193,6 +193,8 @@ class MQTTService:
                 self._handle_sensor_data(topic, payload)
             elif '/card/learned' in topic:
                 self._handle_card_learned(topic, payload)
+            elif '/card/sync' in topic:                  
+                self._handle_card_sync_request(topic, payload)
             elif '/access' in topic:
                 self._handle_access_log(topic, payload)
 
@@ -208,6 +210,7 @@ class MQTTService:
             ("boards/+/state", 0),
             ("boards/+/sensor", 0),
             ("boards/+/card/learned", 0),
+            ("boards/+/card/sync", 0),
             ("boards/+/access", 0),
         ]
         self.client.subscribe(topics)
@@ -216,6 +219,25 @@ class MQTTService:
     # ============================================
     # MESSAGE HANDLERS
     # ============================================
+
+    def _handle_card_sync_request(self, topic: str, payload: str):
+        """Xử lý yêu cầu xin danh sách thẻ từ board"""
+        try:
+            board_mac = topic.split('/')[1]
+            data = json.loads(payload)
+            
+            # Chỉ xử lý nếu payload chứa action: request
+            if data.get('action') == 'request':
+                logger.info(f"Received card sync request from board {board_mac}")
+                db = SessionLocal()
+                try:
+                    board = crud_board.get_board_by_mac(db, board_mac)
+                    if board and board.home_id and board.board_type == "ESP32_ACCESS_V1":
+                        self._run_async(self._sync_cards_to_board(board))
+                finally:
+                    db.close()
+        except Exception as e:
+            logger.error(f"Error handling card sync request: {str(e)}")
 
     def _handle_pairing_mode(self, topic: str, payload: str):
         """
@@ -343,13 +365,6 @@ class MQTTService:
                 # Thêm vào online_boards — scheduler sẽ detect OFFLINE→ONLINE
                 # transition và gửi notification nếu cần
                 self.online_boards.add(board.id)
-
-                # Sync cards khi board access vừa reconnect
-                # (detect qua offline_notified — đã được set bởi scheduler)
-                if board.home_id and board.id in self.offline_notified:
-                    self.offline_notified.discard(board.id)
-                    if board.board_type == "ESP32_ACCESS_V1":
-                        self._run_async(self._sync_cards_to_board(board))
 
                 logger.debug(f"Heartbeat from {board_mac} — last_seen updated")
 
