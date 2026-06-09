@@ -21,6 +21,13 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
+
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("/healthz") == -1
+
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
 logger = logging.getLogger(__name__)
 
 
