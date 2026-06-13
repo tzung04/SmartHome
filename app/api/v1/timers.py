@@ -77,14 +77,14 @@ async def create_timer(
 async def list_timers(
     device_id: UUID = None,
     home_id: UUID = None,
-    status: str = None,
+    timer_status: str = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Get timers
     
-    - Filter by device_id, home_id, or status
+    - Filter by device_id, home_id, or timer_status
     - If no filters, returns user's timers
     """
     from app.models.timer_model import TimerStatus
@@ -106,8 +106,8 @@ async def list_timers(
                 detail="You don't have access to this device"
             )
         
-        timer_status = TimerStatus(status) if status else None
-        timers = crud_timer.get_device_timers(db, device_id, timer_status)
+        parsed_status = TimerStatus(timer_status) if timer_status else None
+        timers = crud_timer.get_device_timers(db, device_id, parsed_status)
     
     elif home_id:
         # Check if user is member
@@ -117,13 +117,13 @@ async def list_timers(
                 detail="You are not a member of this home"
             )
         
-        timer_status = TimerStatus(status) if status else None
-        timers = crud_timer.get_home_timers(db, home_id, timer_status)
+        parsed_status = TimerStatus(timer_status) if timer_status else None
+        timers = crud_timer.get_home_timers(db, home_id, parsed_status)
     
     else:
         # Get user's timers
-        timer_status = TimerStatus(status) if status else None
-        timers = crud_timer.get_user_timers(db, current_user.id, timer_status)
+        parsed_status = TimerStatus(timer_status) if timer_status else None
+        timers = crud_timer.get_user_timers(db, current_user.id, parsed_status)
     
     # Convert to detail response
     timer_details = [

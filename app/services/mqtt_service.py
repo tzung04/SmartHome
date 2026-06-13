@@ -423,7 +423,7 @@ class MQTTService:
                     if board.home_id:
                         self._run_async(
                             ws_manager.notify_device_state_change(
-                                board.home_id, device.id, new_state
+                                board.home_id, device.id, merged_state
                             )
                         )
             finally:
@@ -561,24 +561,12 @@ class MQTTService:
                         )
                     )
 
-                # FCM 
+                # FCM — gửi cho tất cả members có FCM token (bao gồm cả owner)
                 home = board.home
                 if home:
                     board_name = board.name or f"Board {board.mac_address[-8:]}"
                     card_owner = card.owner_name if card else "Unknown"
 
-                    # Owner
-                    if home.owner and home.owner.fcm_token:
-                        notify_access_event(
-                            fcm_token=home.owner.fcm_token,
-                            card_owner=card_owner,
-                            result=result,
-                            board_name=board_name,
-                            home_name=home.name,
-                            image_url=None
-                        )
-
-                    # Members
                     members = crud_home.get_home_members_with_fcm(db, board.home_id)
                     if members:
                         tokens = [m.user.fcm_token for m in members if m.user.fcm_token]

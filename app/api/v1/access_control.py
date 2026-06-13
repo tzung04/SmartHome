@@ -294,6 +294,13 @@ async def upload_access_image(
             detail="Board does not support access image upload"
         )
 
+    # Board phải đã được pair vào một home
+    if not board.home_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Board is not paired to any home"
+        )
+
     access_log = crud_access.get_log_by_request_id(db, request_id)
     if not access_log:
         logger.warning(

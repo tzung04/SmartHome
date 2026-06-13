@@ -306,36 +306,42 @@ async def forgot_password(
 ):
     """
     Request password reset OTP
-    
-    Sends 6-digit OTP to email (valid for 10 minutes)
+
+    Sends 6-digit OTP to email (valid for 10 minutes).
+    Always returns the same response regardless of whether email exists
+    to prevent email enumeration attacks.
     """
-    # Generate OTP
-    otp = generate_otp()
-    otp_hashed = hash_otp(otp)
-    
-    # Set expiration
+    # Tính expires_at trước để trả response đồng nhất dù email có tồn tại hay không
     expires_at = datetime.now(timezone.utc) + timedelta(
         minutes=settings.otp_expire_minutes
     )
-    
-    # Save OTP to database
-    db_otp = PasswordResetOTP(
-        email=request.email,
-        otp_hash=otp_hashed,
-        expires_at=expires_at
-    )
-    db.add(db_otp)
-    db.commit()
-    
-    # Send OTP email
-    try:
-        send_otp_email(request.email, otp)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send OTP email"
+
+    # Chỉ tạo OTP và gửi email khi user tồn tại
+    user = crud_user.get_user_by_email(db, request.email)
+    if user and user.is_active:
+        otp = generate_otp()
+        otp_hashed = hash_otp(otp)
+
+        db_otp = PasswordResetOTP(
+            email=request.email,
+            otp_hash=otp_hashed,
+            expires_at=expires_at
         )
-    
+        db.add(db_otp)
+        db.commit()
+
+        try:
+            send_otp_email(request.email, otp)
+        except Exception:
+            # Rollback OTP record nếu gửi mail thất bại
+            db.delete(db_otp)
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send OTP email"
+            )
+
+    # Luôn trả cùng 1 response — không tiết lộ email có tồn tại hay không
     return ForgotPasswordResponse(
         email=request.email,
         otp_expires_at=expires_at
