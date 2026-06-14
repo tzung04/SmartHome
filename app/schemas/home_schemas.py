@@ -67,7 +67,7 @@ class HomeListResponse(BaseModel):
 class MemberInvite(BaseModel):
     """Invite member to home request"""
     email: str = Field(..., description="Email of user to invite")
-    role: str = Field("member", description="Role: 'owner' or 'member'")
+    role: str = Field("member", description="Role: Only 'member'")
 
 
 class MemberResponse(BaseModel):

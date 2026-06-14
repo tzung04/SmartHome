@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.permissions import get_current_user
+from app.core.permissions import require_home_access
 from app.models.user_model import User
 from app.crud import home_crud as crud_home
 from app.schemas.home_schemas import (
@@ -98,11 +99,7 @@ async def get_home(
     - Returns home with member/board counts
     """
     # Check if user is member
-    if not crud_home.is_home_member(db, home_id, current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not a member of this home"
-        )
+    require_home_access(home_id, db=db, current_user=current_user)
     
     home = crud_home.get_home_by_id(db, home_id)
     

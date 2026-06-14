@@ -95,7 +95,12 @@ async def invite_member(
         )
     
     # Add member
-    role = MemberRole.OWNER if invite_data.role == "owner" else MemberRole.MEMBER
+    if invite_data.role == "owner":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot invite directly as owner. Invite as member first, then transfer ownership via PUT /{user_id}/role"
+        )
+    role = MemberRole.MEMBER
     
     member = crud_home.create_member(
         db,
