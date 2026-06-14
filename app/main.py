@@ -6,6 +6,7 @@ import json
 from uuid import UUID
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
@@ -87,6 +88,14 @@ app = FastAPI(
     version="1.0.0",
     description="Smart Home IoT Backend - Multi-user system with ESP8266/ESP32 boards",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
