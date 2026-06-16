@@ -389,7 +389,10 @@ async def get_system_stats(
         },
         "boards": {
             "total": crud_board.count_boards(db),
-            "online": crud_board.count_online_boards(db)
+            "online": crud_board.count_online_boards(db),
+            "offline": crud_board.count_boards_by_status(db, "offline"),
+            "paired": crud_board.count_boards_by_status(db, "paired"),
+            "unpaired": crud_board.count_boards_by_status(db, "unpaired"),
         },
         "devices": {
             "total": crud_device.count_devices(db)

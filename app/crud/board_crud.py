@@ -312,3 +312,6 @@ def count_home_boards(db: Session, home_id: UUID) -> int:
     return db.query(func.count(Board.id)).filter(
         Board.home_id == home_id
     ).scalar()
+
+def count_boards_by_status(db: Session, status: str) -> int:
+    return db.query(Board).filter(Board.status == status).count()
