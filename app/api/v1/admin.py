@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.permissions import require_super_admin
 from app.models.user_model import User
+from app.models.board_model import Board
 from app.models.firmware_model import Firmware
 from app.crud import user_crud as crud_user
 from app.crud import board_crud as crud_board
@@ -20,7 +21,7 @@ from app.schemas.firmware_schemas import (
     FirmwareListResponse,
     FirmwareDeleteResponse
 )
-from app.schemas.board_schemas import BoardOTARequest, BoardOTAResponse
+from app.schemas.board_schemas import BoardOTARequest, BoardOTAResponse, BoardListResponse
 from app.schemas.user_schemas import UserListResponse, UserBanRequest, UserBanResponse
 from app.services.storage_service import upload_firmware, delete_firmware
 from app.services.mqtt_service import publish_ota_update
@@ -242,6 +243,27 @@ async def trigger_ota_update(
         target_version=firmware.version
     )
 
+# ============================================
+# BOARD MANAGEMENT
+# ============================================
+
+@router.get("/boards", response_model=BoardListResponse)
+async def list_all_boards(
+    status: Optional[str] = None,
+    board_type: Optional[str] = None,
+    admin: User = Depends(require_super_admin),
+    db: Session = Depends(get_db)
+):
+    """List all boards in system (Super Admin only)"""
+    query = db.query(Board)
+    
+    if status:
+        query = query.filter(Board.status == status)
+    if board_type:
+        query = query.filter(Board.board_type == board_type)
+    
+    boards = query.order_by(Board.created_at.desc()).all()
+    return BoardListResponse(items=boards, total=len(boards))
 
 # ============================================
 # USER MANAGEMENT
