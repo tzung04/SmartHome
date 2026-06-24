@@ -99,6 +99,23 @@ def update_device(db: Session, device_id: UUID, device_update: DeviceUpdate) -> 
     return db_device
 
 
+def unassign_device_room(db: Session, device_id: UUID) -> Optional[Device]:
+    """
+    Gỡ thiết bị khỏi phòng (đặt room_id = NULL).
+    """
+    db_device = get_device_by_id(db, device_id)
+    if not db_device:
+        return None
+
+    db_device.room_id = None
+    db_device.position_x = None
+    db_device.position_y = None
+
+    db.commit()
+    db.refresh(db_device)
+    return db_device
+
+
 def update_device_state(
     db: Session,
     device_id: UUID,

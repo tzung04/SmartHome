@@ -20,6 +20,7 @@ from app.schemas.device_schemas import (
     DeviceResponse,
     DeviceDetailResponse,
     DeviceListResponse,
+    DeviceHistoryEntry,
     DeviceHistoryResponse
 )
 from app.services.mqtt_service import publish_device_control
@@ -302,7 +303,44 @@ async def update_device(
         )
     
     device = crud_device.update_device(db, device_id, device_update)
-    
+
+    return device
+
+
+# ============================================
+# UNASSIGN DEVICE FROM ROOM
+# ============================================
+
+@router.post("/{device_id}/unassign", response_model=DeviceResponse)
+async def unassign_device(
+    device_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Gỡ thiết bị khỏi phòng (room_id = NULL).
+
+    Endpoint riêng vì PUT /devices/{id} coi room_id=None là "không đổi"
+    nên không thể clear qua đó. Chỉ owner mới được thao tác.
+    """
+    device = crud_device.get_device_by_id(db, device_id)
+
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Device not found"
+        )
+
+    board = device.board
+
+    if board.home_id and not crud_home.is_home_owner(db, board.home_id, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only home owner can update devices"
+        )
+
+    device = crud_device.unassign_device_room(db, device_id)
+
     return device
 
 
@@ -342,9 +380,21 @@ async def get_device_history(
     skip = (page - 1) * limit
     history, total = crud_device.get_device_history(db, device_id, skip, limit)
     pages = (total + limit - 1) // limit
-    
+
+    items = [
+        DeviceHistoryEntry(
+            id=h.id,
+            action=h.action,
+            old_state=h.old_state,
+            new_state=h.new_state,
+            triggered_by=h.triggered_by_user,
+            created_at=h.created_at,
+        )
+        for h in history
+    ]
+
     return DeviceHistoryResponse(
-        items=history,
+        items=items,
         total=total,
         page=page,
         limit=limit,
