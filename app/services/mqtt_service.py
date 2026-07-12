@@ -313,64 +313,21 @@ class MQTTService:
             logger.error(f"Error handling pairing mode: {str(e)}")
 
     def _handle_lwt(self, topic: str, payload: str):
-        """
-        Handle Last Will Testament - board disconnected ungracefully.
-
-        LWT chỉ là tín hiệu gợi ý từ MQTT broker khi mất kết nối đột ngột.
-        Không force offline ngay vì:
-        1. LWT có thể đến muộn hoặc sai timing
-        2. Board có thể reconnect ngay sau đó
-        3. Scheduler (_check_board_statuses) sẽ detect offline sau timeout
-
-        → Chỉ xóa khỏi online_boards để scheduler xử lý transition nhanh hơn.
-        """
+        """LWT là nguồn chính cho OFFLINE — xử lý ngay, không đợi scheduler."""
         try:
             board_mac = topic.split('/')[1]
-            logger.warning(f"LWT received for board {board_mac} — will confirm via scheduler")
-
-            db = SessionLocal()
-            try:
-                board = crud_board.get_board_by_mac(db, board_mac)
-                if not board:
-                    return
-                # Xóa khỏi online_boards → scheduler sẽ detect transition
-                # ngay trong lần check tiếp theo (tối đa 30s)
-                self.online_boards.discard(board.id)
-            finally:
-                db.close()
-
+            logger.warning(f"LWT received for board {board_mac}")
+            self._run_async(self._mark_board_offline(board_mac)) 
         except Exception as e:
             logger.error(f"Error handling LWT: {str(e)}")
 
     def _handle_board_status(self, topic: str, payload: str):
-        """
-        Handle board heartbeat.
-
-        Chỉ update last_seen và thêm vào online_boards.
-        Không notify FCM/WS tại đây — để scheduler xử lý transition.
-        Scheduler là nguồn sự thật duy nhất cho online/offline state.
-        """
+        """Heartbeat là nguồn DUY NHẤT cho ONLINE (kể cả khi phục hồi sau
+        offline). Scheduler không bao giờ tự suy ra ONLINE từ last_seen
+        nữa, để tránh race giữa LWT và last_seen còn "chưa kịp stale"."""
         try:
             board_mac = topic.split('/')[1]
-            data = json.loads(payload)
-            status = data.get('status', 'online')
-
-            db = SessionLocal()
-            try:
-                # Update last_seen
-                board = crud_board.update_board_heartbeat(db, board_mac)
-                if not board:
-                    return
-
-                # Thêm vào online_boards — scheduler sẽ detect OFFLINE→ONLINE
-                # transition và gửi notification nếu cần
-                self.online_boards.add(board.id)
-
-                logger.debug(f"Heartbeat from {board_mac} — last_seen updated")
-
-            finally:
-                db.close()
-
+            self._run_async(self._mark_board_online(board_mac))
         except Exception as e:
             logger.error(f"Error handling board status: {str(e)}")
 
@@ -626,7 +583,6 @@ class MQTTService:
             db.close()
 
     async def _check_single_board(self, db, board, timeout_threshold):
-        """Check single board and handle online/offline transitions"""
         was_online = board.id in self.online_boards
         is_online = (
             board.last_seen is not None and
@@ -636,7 +592,6 @@ class MQTTService:
         if was_online == is_online:
             return
 
-        # ONLINE -> OFFLINE
         if was_online and not is_online:
             logger.warning(f"Board {board.mac_address} went OFFLINE")
 
@@ -652,7 +607,6 @@ class MQTTService:
                     board.home_id, board.id, "offline"
                 )
 
-        # OFFLINE -> ONLINE
         elif not was_online and is_online:
             logger.info(f"Board {board.mac_address} came ONLINE")
 
@@ -662,7 +616,7 @@ class MQTTService:
             # Chỉ gửi notification nếu chưa được gửi bởi _handle_board_status
             if board.id in self.offline_notified:
                 await self._send_online_notifications(board)
-                self.offline_notified.discard(board.id)  
+                self.offline_notified.discard(board.id)
 
             if board.home_id:
                 await ws_manager.notify_board_status_change(
@@ -739,6 +693,55 @@ class MQTTService:
 
         except Exception as e:
             logger.error(f"Error sending online notifications: {str(e)}")
+
+    async def _mark_board_offline(self, board_mac: str):
+        db = SessionLocal()
+        try:
+            board = crud_board.get_board_by_mac(db, board_mac)
+            if not board:
+                return
+
+            was_online = board.id in self.online_boards
+            self.online_boards.discard(board.id)
+
+            if was_online:
+                crud_board.update_board_status(db, board.id, "offline")
+                if board.home_id:
+                    await ws_manager.notify_board_status_change(
+                        board.home_id, board.id, "offline"
+                    )
+
+            if board.id not in self.offline_notified:
+                self.offline_notified.add(board.id)
+                logger.warning(f"Board {board_mac} OFFLINE")
+                await self._send_offline_notifications(board)
+        finally:
+            db.close()
+
+    async def _mark_board_online(self, board_mac: str):
+        db = SessionLocal()
+        try:
+            board = crud_board.update_board_heartbeat(db, board_mac)
+            if not board:
+                return
+
+            newly_online = board.id not in self.online_boards
+            was_offline_notified = board.id in self.offline_notified
+
+            if newly_online:
+                crud_board.update_board_status(db, board.id, "online")
+                self.online_boards.add(board.id)
+                if board.home_id:
+                    await ws_manager.notify_board_status_change(
+                        board.home_id, board.id, "online"
+                    )
+
+            if was_offline_notified:
+                self.offline_notified.discard(board.id)
+                logger.info(f"Board {board_mac} back ONLINE")
+                await self._send_online_notifications(board)
+        finally:
+            db.close()
 
     # ============================================
     # PUBLISH METHODS
