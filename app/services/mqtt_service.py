@@ -589,6 +589,9 @@ class MQTTService:
             board.last_seen > timeout_threshold
         )
 
+        if not was_online and is_online and board.id in self.offline_notified:
+            return
+
         if was_online == is_online:
             return
 
