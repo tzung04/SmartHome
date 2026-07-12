@@ -175,6 +175,7 @@ def create_access_log(
     result: AccessResult,
     request_id: Optional[str] = None,
     image_url: Optional[str] = None,
+    created_at: Optional[datetime] = None,
 ) -> AccessLog:
     """
     Tạo access log entry.
@@ -202,6 +203,8 @@ def create_access_log(
         request_id=request_id,
         image_url=image_url,
     )
+    if created_at is not None:
+        db_log.created_at = created_at
     db.add(db_log)
     db.commit()
     db.refresh(db_log)

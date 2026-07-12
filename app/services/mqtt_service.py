@@ -516,6 +516,8 @@ class MQTTService:
             request_id = data.get('request_id')
             card_uid = data.get('card_uid')
             result = data.get('result', 'unknown_card')
+            is_offline = bool(data.get('offline', False))
+            ms_ago = data.get('ms_ago')
 
             if not request_id:
                 logger.warning(f"Access log missing request_id from board {board_mac}")
@@ -523,7 +525,15 @@ class MQTTService:
             if not card_uid:
                 logger.warning(f"Access log missing card_uid from board {board_mac}")
                 return
-
+            occurred_at = datetime.now(timezone.utc)
+            if is_offline and ms_ago is not None:
+                try:
+                    occurred_at = occurred_at - timedelta(milliseconds=int(ms_ago))
+                except (TypeError, ValueError):
+                    logger.warning(
+                        f"Invalid ms_ago={ms_ago!r} from board {board_mac}, "
+                        f"falling back to receipt time"
+                    )
             db = SessionLocal()
             try:
                 board = crud_board.get_board_by_mac(db, board_mac)
@@ -545,11 +555,14 @@ class MQTTService:
                     result=AccessResult(result),
                     request_id=request_id,
                     image_url=None,
+                    created_at=occurred_at,
                 )
 
                 logger.info(
                     f"Access log created: board={board_mac}, "
                     f"card={card_uid}, result={result}, request_id={request_id}"
+                    f"occurred_at={occurred_at.isoformat()}"
+                    + (f" (offline, {ms_ago}ms trễ)" if is_offline else "") 
                 )
 
                 # WebSocket notify
